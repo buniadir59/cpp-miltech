@@ -1,10 +1,10 @@
 #include <iostream>
 #include <iomanip>
 #include <fstream>
-#include <ostream>
 #include <string>
 #include <cmath>
 
+#define DOUBLE_OUTPUT_PRECISION 4
 //#define TEST_OUTPUT
 
     // TODO: implement wheel odometry for a 4-wheel differential-drive UGV.
@@ -18,24 +18,24 @@
     //         timestamp_ms fl_ticks fr_ticks bl_ticks br_ticks
     // Output: same tabular format on stdout, starting from the second sample:
     //         timestamp_ms x y theta
-
+constexpr double kPi = 3.14159265358979323846;
 constexpr long kTicksPerRevolution = 1024;  //iмпульсiв на один оберт колеса
 constexpr double kWheelRadiusM = 0.3;       //радiус колеса у метрах (дiаметр 60 см)
 constexpr double kWheelbaseM = 1.0;         //вiдстань мiж лiвим i правим бортом, у метрах
-constexpr double kDistancePerTick = 2.0 * M_PI * kWheelRadiusM / kTicksPerRevolution;
+constexpr double kDistancePerTick = 2.0 * kPi * kWheelRadiusM / static_cast<double>(kTicksPerRevolution); //M_PI
 
-struct position_t {
+struct Position {
     double x=0, y=0, theta=0;
 };
 
-std::ostream& operator<<(std::ostream& os, const position_t& p) { //overloaded << for position_t
-    return os << std::fixed << std::setprecision(2) << p.x << " " << p.y << " " << p.theta;
+std::ostream& operator<<(std::ostream& os, const Position& p) { //overloaded << for Position
+    return os << std::fixed << std::setprecision(DOUBLE_OUTPUT_PRECISION) << p.x << " " << p.y << " " << p.theta;
 }
  
-struct odo_t {
+struct OdometerTicks {
     long fl_ticks, fr_ticks, bl_ticks, br_ticks;
 
-    odo_t& operator-=(const odo_t& delta) {  //decrement
+    OdometerTicks& operator-=(const OdometerTicks& delta) {  //decrement
         this->fl_ticks -= delta.fl_ticks;
         this->fr_ticks -= delta.fr_ticks;
         this->bl_ticks -= delta.bl_ticks;
@@ -44,19 +44,19 @@ struct odo_t {
     }
 };
 
-odo_t operator-(odo_t a1, const odo_t& a2) { //diff
+OdometerTicks operator-(OdometerTicks a1, const OdometerTicks& a2) { //diff
         a1 -= a2;
         return a1;
 }
 
-std::ostream& operator<<(std::ostream& os, const odo_t& o) { //overloaded << for tick_t
+std::ostream& operator<<(std::ostream& os, const OdometerTicks& o) { //overloaded << for tick_t
     return os << "F(" << o.fl_ticks << ", " << o.fr_ticks
               << ") B(" << o.bl_ticks << ", " << o.br_ticks << ")";
 }
 
 /**** returns time and, in o, respective odometry data*/
-bool readTickData(std::istream& in, long& timestamp_ms, odo_t& odo) {
-    return static_cast<bool>( //NB! if error, nullptr is returned
+bool readTickData(std::istream& in, long& timestamp_ms, OdometerTicks& odo) {
+    return static_cast<bool>( //NB! if error, static_cast<bool>(nullptr) is returned
         in >> timestamp_ms
            >> odo.fl_ticks
            >> odo.fr_ticks
@@ -73,16 +73,14 @@ int main(int argc, char** argv) {
     std::string filename = argv[1];
     std::ifstream in(filename); //file for getting odometry  data 
 
-    std::cout << "Input file: " << filename << std::endl;
-
     if (!in) {
         std::cerr << "Cannot open input file: " << filename << std::endl;
         return 2;
     }
 
-    position_t pos{}; //to be calculated
+    Position pos{}; //to be calculated
     long timestamp_ms{}; 
-    odo_t current{}, previous{};
+    OdometerTicks current{}, previous{};
     bool has_previous = false;
 
     while (readTickData(in, timestamp_ms, current)) {
@@ -98,7 +96,7 @@ int main(int argc, char** argv) {
         }
 
         // calculate delta from previous -> current
-        odo_t delta = current - previous; 
+        OdometerTicks delta = current - previous; 
 
         //Усереднити борти (передне i заднє колесо одного боку обертаються синхронно)&Перевести у метри:
         double dl = (kDistancePerTick / 2.0) * (delta.fl_ticks + delta.bl_ticks);
