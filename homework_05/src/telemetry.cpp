@@ -1,8 +1,12 @@
 #include "../include/telemetry.hpp" //FIX#1: incorrect path
 
 #include <cstdlib>
+#include <cerrno>  // errno, ERANGE
+#include <cmath>   // std::isfinite
+#include <limits>
 #include <fstream>
 #include <iostream>
+
 
 // Debugging exercise notes:
 // this file intentionally contains four runtime defects.
@@ -38,30 +42,46 @@ int split_line(char line[], char* fields[], int max_fields) {
     return count;
 }
 
-long parse_long(const char* text) {
+bool parse_long(const char* text, int line_count, long& res_long) {
     char* end = nullptr;
-    const long value = std::strtol(text, &end, 10);
+    errno = 0;
+    res_long = std::strtol(text, &end, 10);
 
-    if (end == text) {
-        std::abort();
+    if (errno == ERANGE || end == text  || *end != '\0') { 
+        std::cerr   << "error: invalid integer value at line " << line_count << ".\n";
+        return false;
     }
 
-    return value;
+    return true;
 }
 
-int parse_int(const char* text) {
-    return static_cast<int>(parse_long(text));
-}
+bool parse_int(const char* text, int line_count, int& res_int) {
+    long res_long;
+    if (!parse_long(text, line_count, res_long)) {
+        return false;
+    } 
 
-double parse_double(const char* text) {
-    char* end = nullptr;
-    const double value = std::strtod(text, &end);
-
-    if (end == text) {
-        std::abort();
+    if (res_long < std::numeric_limits<int>::min()
+             || res_long > std::numeric_limits<int>::max()) {
+        std::cerr << "error: integer value out of range at line " << line_count << "\n";             
+        return false;
     }
 
-    return value;
+    res_int = static_cast<int>(res_long);
+    return true; 
+}
+
+bool parse_double(const char* text, int line_count, double& res_double) {
+    char* end = nullptr;
+    errno = 0;
+    res_double = std::strtod(text, &end);
+
+    if (errno == ERANGE ||end == text || *end != '\0') { //
+        std::cerr   << "error: invalid double value at line " << line_count << ".\n";
+        return false;
+    }
+
+    return true;
 }
 
 bool parse_frame(char line[], int line_count, Frame& frame) {
@@ -74,13 +94,16 @@ bool parse_frame(char line[], int line_count, Frame& frame) {
         return false;
     }
 
-    frame.timestamp_ms = parse_long(fields[0]);
-    frame.seq = parse_int(fields[1]);
-    frame.voltage_v = parse_double(fields[2]);
-    frame.current_a = parse_double(fields[3]);
-    frame.temperature_c = parse_double(fields[4]);
-    frame.gps_fix = parse_int(fields[5]);
-    frame.satellites = parse_int(fields[6]);
+    if ( 
+        !parse_long(fields[0], line_count, frame.timestamp_ms )
+        || !parse_int(fields[1], line_count, frame.seq )
+        || !parse_double(fields[2], line_count, frame.voltage_v) 
+        || !parse_double(fields[3], line_count, frame.current_a)
+        || !parse_double(fields[4], line_count, frame.temperature_c)
+        || !parse_int(fields[5], line_count, frame.gps_fix)
+        || !parse_int(fields[6], line_count, frame.satellites) 
+    ) return false;
+        
     return true;
 }
 
