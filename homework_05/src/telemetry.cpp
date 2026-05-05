@@ -1,18 +1,11 @@
-#include "../include/telemetry.hpp" //FIX#1: incorrect path
+#include "telemetry.hpp" 
 
 #include <cstdlib>
 #include <cerrno>  // errno, ERANGE
-#include <cmath>   // std::isfinite
 #include <limits>
 #include <fstream>
 #include <iostream>
 #include <string>
-
-
-// Debugging exercise notes:
-// this file intentionally contains four runtime defects.
-// The defects are related to malformed input shape, invalid numeric values,
-// unsafe time deltas, and empty logs. Exact locations are not marked on purpose.
 
 const int EXPECTED_FIELD_COUNT = 7;
 const int MAX_LINE_LENGTH = 256;
@@ -97,8 +90,8 @@ bool parse_double(const char* text, int line_count, double& res_double) {
  * with detailed error description and line number with erroneus input
  */ 
 bool parse_frame(char line[], int line_count, Frame& frame) {
-    char* fields[EXPECTED_FIELD_COUNT] = {};
-    const int field_count = split_line(line, fields, EXPECTED_FIELD_COUNT);
+    char* fields[EXPECTED_FIELD_COUNT + 1] = {};
+    const int field_count = split_line(line, fields, EXPECTED_FIELD_COUNT + 1);
     const std::string errhead = "ERR: invalid input data in line ";
 
     if (field_count != EXPECTED_FIELD_COUNT) { //invalid data in line
@@ -132,7 +125,7 @@ bool parse_frame(char line[], int line_count, Frame& frame) {
         return false;  
     }
 
-    if ((frame.temperature_c < -40.0 || frame.temperature_c >= 120)) {
+    if ((frame.temperature_c < -40.0 || frame.temperature_c > 120.0)) {
         std::cerr   << errhead << line_count 
                     << ": temperature_c must be in [-40, 120] range.\n";
         return false;  
@@ -172,7 +165,7 @@ int read_frames(const char* path, Frame frames[], int max_frames) {
     std::ifstream input{path};
     if (!input) {
         std::cerr << "ERR: failed to open input file: " << path << '\n';
-        return -1; //fixed return for file open error 
+        return -1; //fixed return for file not open error 
     }
 
     int frame_count = 0;
@@ -184,6 +177,12 @@ int read_frames(const char* path, Frame frames[], int max_frames) {
         line_count++;
         if (line[0] == '\0') { //skip empty line
             continue;
+        }
+
+        if (frame_count >= max_frames) { //line exists but cannot be processed
+            std::cerr << "ERR: too many telemetry frames, maximum "
+              << max_frames << " can be processed.\n";
+            return -1;
         }
 
         if (frame_count < max_frames) {
