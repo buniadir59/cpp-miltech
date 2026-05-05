@@ -30,7 +30,7 @@
     {
       "name": "release",
       "displayName": "Release",
-      "description": "Release build для для занять блоку 2.",
+      "description": "Release build для занять блоку 2.",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/release",
       "cacheVariables": {
@@ -38,13 +38,13 @@
       }
     },
     {
-      "name": "relwithdebuginfo",
-      "displayName": "RelWithDebugInfo",
+      "name": "relwithdebinfo",
+      "displayName": "Release with debug info",
       "description": "Optimized build with debug information для занять блоку 2.",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/relwithdebuginfo",
+      "binaryDir": "${sourceDir}/build/relwithdebinfo",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebugInfo"
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
       }
     }
   ],
@@ -68,10 +68,10 @@
       "configurePreset": "release"
     },
     {
-      "name": "relwithdebuginfo",
-      "displayName": "Build Relwithdebuginfo",
-      "description": "Зібрати relwithdebuginfo preset після configure.",
-      "configurePreset": "relwithdebuginfo"
+      "name": "relwithdebinfo",
+      "displayName": "Build Release with debug info",
+      "description": "Зібрати relwithdebinfo preset після configure.",
+      "configurePreset": "relwithdebinfo"
     }
   ]
 }
