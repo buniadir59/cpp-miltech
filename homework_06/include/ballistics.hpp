@@ -26,6 +26,9 @@ struct DropSolution {
     bool has_intermediate_point = false;
     double intermediate_x = 0.0;
     double intermediate_y = 0.0;
+    
+    double fall_time_s = 0.0;
+    double horizontal_fall_distance_m = 0.0;
 };
 
 DropSolution compute_drop_solution(const BallisticsInput& input);

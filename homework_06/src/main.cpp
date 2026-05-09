@@ -20,6 +20,15 @@ int main()
         const ballistics::DropSolution solution =
             ballistics::compute_drop_solution(input);
 
+        std::cout << "Fall time, s: " << solution.fall_time_s << '\n';
+        std::cout << "Horizontal fall distance, m: "
+                  << solution.horizontal_fall_distance_m << '\n';
+
+        if (solution.has_intermediate_point) {
+            std::cout << "Intermediate point: " << solution.intermediate_x << ' '
+                      << solution.intermediate_y << '\n';
+        }
+
         std::cout << "Drop point: " << solution.fire_x << ' ' << solution.fire_y
                   << '\n';
     } catch (const std::exception& error) {
