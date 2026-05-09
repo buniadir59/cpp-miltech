@@ -1,36 +1,84 @@
 #include "ballistics.hpp"
 
 #include <exception>
+#include <fstream>
+#include <iomanip>
 #include <iostream>
+#include <string>
 
-int main()
+namespace {
+
+ballistics::BallisticsInput read_input_file(const std::string& file_path)
 {
-    const ballistics::BallisticsInput input{
-        .drone_x = 100.0,
-        .drone_y = 100.0,
-        .drone_z = 100.0,
-        .target_x = 200.0,
-        .target_y = 200.0,
-        .attack_speed = 10.0,
-        .acceleration_path = 10.0,
-        .ammo_name = "VOG-17",
-    };
+    std::ifstream input_file(file_path);
+
+    if (!input_file.is_open()) {
+        throw std::runtime_error("Unable to open input file: " + file_path);
+    }
+
+    ballistics::BallisticsInput input;
+
+    input_file >> input.drone_x >> input.drone_y >> input.drone_z
+        >> input.target_x >> input.target_y >> input.attack_speed
+        >> input.acceleration_path >> input.ammo_name;
+
+    if (!input_file) {
+        throw std::runtime_error("Input file has invalid or incomplete data");
+    }
+
+    return input;
+}
+
+void print_solution(const ballistics::DropSolution& solution)
+{
+    std::cout << std::fixed << std::setprecision(3);
+
+    std::cout << "fall_time_s " << solution.fall_time_s << '\n';
+    std::cout << "horizontal_fall_distance_m "
+              << solution.horizontal_fall_distance_m << '\n';
+
+    if (solution.has_intermediate_point) {
+        std::cout << "intermediate_point " << solution.intermediate_x << ' '
+                  << solution.intermediate_y << '\n';
+    }
+
+    std::cout << "drop_point " << solution.fire_x << ' ' << solution.fire_y
+              << '\n';
+}
+
+void save_solution(const ballistics::DropSolution& solution)
+{
+    std::ofstream o_file ("output.txt"); 
+    if (!o_file.is_open()) {
+        throw std::runtime_error("Unable to open output.txt");
+    }
+    o_file << std::fixed << std::setprecision(3);
+    
+    if (solution.has_intermediate_point) {
+        o_file << "intermediate_point " << solution.intermediate_x << ' '
+                  << solution.intermediate_y << ' ';
+    }
+    o_file << solution.fire_x << ' ' << solution.fire_y << '\n'; 
+}
+
+}  // namespace
+
+int main(int argc, char* argv[])
+{
+    if (argc != 2) {
+        std::cerr << "Usage: ballistics_cli <input-file>\n";
+        return 1;
+    }
 
     try {
+        const ballistics::BallisticsInput input = read_input_file(argv[1]);
         const ballistics::DropSolution solution =
             ballistics::compute_drop_solution(input);
 
-        std::cout << "Fall time, s: " << solution.fall_time_s << '\n';
-        std::cout << "Horizontal fall distance, m: "
-                  << solution.horizontal_fall_distance_m << '\n';
+        print_solution(solution);
 
-        if (solution.has_intermediate_point) {
-            std::cout << "Intermediate point: " << solution.intermediate_x << ' '
-                      << solution.intermediate_y << '\n';
-        }
+        save_solution(solution);
 
-        std::cout << "Drop point: " << solution.fire_x << ' ' << solution.fire_y
-                  << '\n';
     } catch (const std::exception& error) {
         std::cerr << "Error: " << error.what() << '\n';
         return 1;

@@ -33,3 +33,6 @@ core.*
 .DS_Store
 Thumbs.db
 
+# Runtime output files produced by homework CLI programs.
+output.txt
+
