@@ -31,7 +31,7 @@ struct DropSolution {
   double horizontal_fall_distance_m = 0.0;
 };
 
-DropSolution compute_drop_solution(const BallisticsInput& input);
+auto compute_drop_solution(const BallisticsInput& input) -> DropSolution;
 
 }  // namespace ballistics
 

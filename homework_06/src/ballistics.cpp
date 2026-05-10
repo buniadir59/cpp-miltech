@@ -9,6 +9,7 @@
 #include <numbers>
 #include <stdexcept>
 #include <string>
+#include <array>
 
 namespace ballistics {
 namespace {
@@ -29,15 +30,15 @@ struct Ammo {
   AmmoType type;  // Kept as part of the original HW1 ammo table/domain model
 };
 
-constexpr Ammo kKnownAmmos[] = {
+constexpr std::array<Ammo, 5> kKnownAmmos{{
   {"VOG-17", 0.35, 0.07, 0.0, FreeFall},
   {"M67", 0.6, 0.10, 0.0, FreeFall},
   {"RKG-3", 1.2, 0.10, 0.0, FreeFall},
   {"GLIDING-VOG", 0.45, 0.10, 1.0, Gliding},
   {"GLIDING-RKG", 1.4, 0.10, 1.0, Gliding},
-};
+}};
 
-const Ammo& find_ammo(const std::string& ammo_name)
+auto find_ammo(const std::string& ammo_name) -> const Ammo&
 {
   for (const auto& ammo : kKnownAmmos) {
     if (ammo_name == ammo.title) {
@@ -48,21 +49,20 @@ const Ammo& find_ammo(const std::string& ammo_name)
   throw std::invalid_argument("Unknown ammo: " + ammo_name);
 }
 
-double calculate_free_fall_time_s(double attack_speed_mps, double altitude_m, double drag, double lift, double mass_kg)
+auto calculate_free_fall_time_s(const BallisticsInput& input, const Ammo& ammo) -> double
 {
-  const double drag_lift_speed = drag * lift * attack_speed_mps;
-  const double gravity_mass = kGravity * mass_kg;
-
-  const double a = drag * (gravity_mass - 2.0 * drag * drag_lift_speed);
-  const double b_div_3 = mass_kg * (drag_lift_speed - gravity_mass);
-  const double c = altitude_m * mass_kg * mass_kg * 6.0;
+  const double drag_lift_speed = ammo.drag * ammo.lift * input.attack_speed;
+  const double gravity_mass = kGravity * ammo.mass_kg;
+  const double a = ammo.drag * (gravity_mass - 2.0 * ammo.drag * drag_lift_speed);
+  const double b_div_3 = ammo.mass_kg * (drag_lift_speed - gravity_mass);
+  const double c = input.drone_z * ammo.mass_kg * ammo.mass_kg * 6.0;
 
   if (std::abs(a) < kEpsilon) {
     if (std::abs(b_div_3) < kEpsilon) {
       throw std::domain_error("Unable to calculate fall time");
     }
-
-    return std::sqrt(c / (-b_div_3 * 3.0));
+    const double sqrt_arg = c / (-b_div_3 * 3.0);
+    return std::sqrt(sqrt_arg);
   }
 
   const double b_div_3a = b_div_3 / a;
@@ -78,44 +78,47 @@ double calculate_free_fall_time_s(double attack_speed_mps, double altitude_m, do
     throw std::domain_error("Simplified method for calculating fall time is not applicable");
   }
 
-  const double phi = std::acos(acos_argument);
+  const double res = 2.0 * std::cos((std::acos(acos_argument) + std::numbers::pi * 4.0) / 3.0) / sqrt_value - b_div_3a;
+  ;
 
-  return 2.0 * std::cos((phi + std::numbers::pi * 4.0) / 3.0) / sqrt_value - b_div_3a;
+  return res;
 }
 
-double calculate_horizontal_fall_distance_m(double fall_time_s, double attack_speed_mps, double drag, double lift, double mass_kg)
+auto calculate_horizontal_fall_distance_m(double fall_time_s, const BallisticsInput& input, const Ammo& ammo) -> double
 {
-  if (std::abs(mass_kg) < kEpsilon) {
+  if (std::abs(ammo.mass_kg) < kEpsilon) {
     throw std::domain_error("Ammo mass must be non-zero");
   }
 
-  const double drag_squared = drag * drag;
-  const double drag_cubed = drag_squared * drag;
+  const double drag_squared = ammo.drag * ammo.drag;
+  const double drag_cubed = drag_squared * ammo.drag;
 
-  const double lift_squared = lift * lift;
+  const double lift_squared = ammo.lift * ammo.lift;
   const double lift_fourth = lift_squared * lift_squared;
 
-  const double mass_squared = mass_kg * mass_kg;
-  const double mass_cubed = mass_squared * mass_kg;
-  const double mass_fourth = mass_cubed * mass_kg;
+  const double mass_squared = ammo.mass_kg * ammo.mass_kg;
+  const double mass_cubed = mass_squared * ammo.mass_kg;
+  const double mass_fourth = mass_cubed * ammo.mass_kg;
 
   const double one_plus_lift_squared = 1.0 + lift_squared;
   const double one_plus_lift_squared_squared = one_plus_lift_squared * one_plus_lift_squared;
 
-  const double a2 = -(drag * attack_speed_mps) / (2.0 * mass_kg);
+  const double a2 = -(ammo.drag * input.attack_speed) / (2.0 * ammo.mass_kg);
 
-  const double a3 = drag * (kGravity * lift * mass_kg - drag * (lift_squared - 1.0) * attack_speed_mps) / (6.0 * mass_squared);
+  const double a3 =
+    ammo.drag * (kGravity * ammo.lift * ammo.mass_kg - ammo.drag * (lift_squared - 1.0) * input.attack_speed) / (6.0 * mass_squared);
 
-  const double a4 = (-6.0 * kGravity * drag_squared * lift * (one_plus_lift_squared + lift_fourth) * mass_kg +
-                     3.0 * drag_cubed * lift_squared * one_plus_lift_squared * attack_speed_mps +
-                     6.0 * drag_cubed * lift_fourth * one_plus_lift_squared * attack_speed_mps) /
+  const double a4 = (-6.0 * kGravity * drag_squared * ammo.lift * (one_plus_lift_squared + lift_fourth) * ammo.mass_kg +
+                     3.0 * drag_cubed * lift_squared * one_plus_lift_squared * input.attack_speed +
+                     6.0 * drag_cubed * lift_fourth * one_plus_lift_squared * input.attack_speed) /
                     (36.0 * one_plus_lift_squared_squared * mass_cubed);
 
-  const double a5 = drag_cubed *
-                    (kGravity * lift * lift_squared * mass_kg - drag * lift_squared * one_plus_lift_squared * attack_speed_mps) /
-                    (12.0 * one_plus_lift_squared * mass_fourth);
+  const double a5 =
+    drag_cubed *
+    (kGravity * ammo.lift * lift_squared * ammo.mass_kg - ammo.drag * lift_squared * one_plus_lift_squared * input.attack_speed) /
+    (12.0 * one_plus_lift_squared * mass_fourth);
 
-  return fall_time_s * (attack_speed_mps + fall_time_s * (a2 + fall_time_s * (a3 + fall_time_s * (a4 + fall_time_s * a5))));
+  return fall_time_s * (input.attack_speed + fall_time_s * (a2 + fall_time_s * (a3 + fall_time_s * (a4 + fall_time_s * a5))));
 }
 
 void validate_input(const BallisticsInput& input)
@@ -139,16 +142,15 @@ void validate_input(const BallisticsInput& input)
 
 }  // namespace
 
-DropSolution compute_drop_solution(const BallisticsInput& input)
+auto compute_drop_solution(const BallisticsInput& input) -> DropSolution
 {
   validate_input(input);
 
   const Ammo& ammo = find_ammo(input.ammo_name);
 
-  const double fall_time_s = calculate_free_fall_time_s(input.attack_speed, input.drone_z, ammo.drag, ammo.lift, ammo.mass_kg);
+  const double fall_time_s = calculate_free_fall_time_s(input, ammo);
 
-  const double horizontal_fall_distance_m =
-    calculate_horizontal_fall_distance_m(fall_time_s, input.attack_speed, ammo.drag, ammo.lift, ammo.mass_kg);
+  const double horizontal_fall_distance_m = calculate_horizontal_fall_distance_m(fall_time_s, input, ammo);
 
   if (horizontal_fall_distance_m < 0.0) {
     throw std::domain_error("Invalid horizontal fall distance");

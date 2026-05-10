@@ -8,7 +8,7 @@
 
 namespace {
 
-ballistics::BallisticsInput read_input_file(const std::string& file_path)
+auto read_input_file(const std::string& file_path)
 {
   std::ifstream input_file(file_path);
 
@@ -58,7 +58,7 @@ void save_solution(const ballistics::DropSolution& solution)
 
 }  // namespace
 
-int main(int argc, char* argv[])
+auto main(int argc, char* argv[]) -> int
 {
   if (argc != 2) {
     std::cerr << "Usage: ballistics_cli <input-file>\n";
@@ -66,6 +66,7 @@ int main(int argc, char* argv[])
   }
 
   try {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): argv[1] is valid after argc check.
     const ballistics::BallisticsInput input = read_input_file(argv[1]);
     const ballistics::DropSolution solution = ballistics::compute_drop_solution(input);
 
