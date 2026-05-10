@@ -5,13 +5,9 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_library(ballistics
-    src/ballistics.cpp
-)
+add_library(ballistics src/ballistics.cpp)
 
-target_include_directories(ballistics PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
+target_include_directories(ballistics PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 target_compile_options(ballistics PRIVATE -Wall -Wextra -pedantic)
 
@@ -25,10 +21,8 @@ if(NOT CMAKE_CROSSCOMPILING)
     include(FetchContent)
     include(GoogleTest)
     FetchContent_Declare(
-        googletest
-        URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
-        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-    )
+        googletest URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
+                       DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
     FetchContent_MakeAvailable(googletest)
     add_executable(ballistics_tests tests/ballistics_tests.cpp)
     target_link_libraries(ballistics_tests PRIVATE ballistics GTest::gtest_main)
