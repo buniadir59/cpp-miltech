@@ -1,5 +1,8 @@
 #include "point_math.hpp"
 
+#include <cmath>
+
+
 /*
   Point
   AngleRad
@@ -30,5 +33,10 @@ namespace pointmath {
             a1 /= k;
             return a1;
     } 
+
+        // **** transform angle to point of 1m radius
+        Point cossin(double a) { 
+                return {std::cos(a), std::sin(a)};
+        }
 
 }

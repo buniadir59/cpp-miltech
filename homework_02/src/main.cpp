@@ -18,13 +18,8 @@
 #define INPUT_FILE_NAME "input.txt"
 #define DATA_FOLDER "homework_02/data/"
 
-/*
-main.cpp
-  read input
-  read targets
-  run simulation
-  manage output 
-*/
+/* main.cpp - read input files, create objects, run simulation loop, save output */
+
 namespace { 
 
   std::string kInputPath = DATA_FOLDER INPUT_FILE_NAME;
@@ -33,7 +28,7 @@ namespace {
 
   // ## max number of simulation steps if any target not hit
 #ifdef TEST_NUM_STEPS
-  constexpr int kMaxSteps = 100; 
+  constexpr int kMaxSteps = 20; 
 #else
   constexpr int kMaxSteps = 10000; 
 #endif
@@ -63,7 +58,7 @@ namespace {
     auto printDrone(const drone::Drone& dr, bool full) {
       //** changing during simulation
       std::cout << "Dr: " << dr.coord << " Dir=" << dr.dirRad
-                << ' ' + getDroneStateStr(dr.state) << std::endl;
+                << ' ' + dr.getDroneStateStr() << std::endl;
       if (full) {   //** constant values
           std::cout << "\tAltitude, m: " << dr.alt
                   << "\n\tAttack Speed, m/s: " << dr.attSpeed
@@ -72,8 +67,8 @@ namespace {
                   << "\n\tTurn Threshold, rad: " << dr.turnThrld
                   << "\n\tAmmo: " << dr.ammoName //.ammo.title << ", m=" << dr.ammo.mass << ", d=" << dr.ammo.drag << ", l=" << dr.ammo.lift   
                   << "\n\tHit Radius, m: " << dr.hitRad
-                //  << "\n\tt_ff=" << dr.ammoFFtime << " hd_ff=" << dr.ammoFFdist << " minDist=" << (dr.ammoFFdist + dr.accPath)
-                //  << "\n\tturn180=" << dr.kTimeTurn180 << " t_acc=" << dr.kAccTime << " acc=" << dr.kAcc 
+                //  << "\n\tturn180=" << dr.kTimeTurn180 
+                  << " t_acc=" << dr.kAccTime << " acc=" << dr.kAcc 
                   << std::endl;
       }
     } 
@@ -121,13 +116,10 @@ namespace {
       throw std::runtime_error("Unable to open input file: " + file_path);
     }
 
-    double initial_dir{};
     input_file >> init_dr.position.x >> init_dr.position.y >> init_dr.altitude
-              >> initial_dir >> init_dr.attack_speed >> init_dr.acceleration_path
+              >> init_dr.initial_direction >> init_dr.attack_speed >> init_dr.acceleration_path
               >> init_dr.ammo_name >> init_sim.tgt_time_step >> init_sim.time_step 
               >> init_dr.hit_radius >> init_dr.angular_speed >> init_dr.turn_threshold;
-              
-    init_dr.initial_direction = pointmath::AngleRad{initial_dir};
 
     if (!input_file) {
       throw std::runtime_error("Input file has invalid or incomplete data");
@@ -160,7 +152,8 @@ auto main() -> int {
     drone::Drone dr{dr_init};  
        
     readTargetsFile(kTargetsPath, sim);
-   
+    sim.resetTargetsPosition(dr);
+
     std::ofstream output_file(kOutputPath);
     if (!output_file.is_open()) {
       throw std::runtime_error("Unable to open output file: " + kOutputPath);
@@ -170,32 +163,36 @@ auto main() -> int {
     int stepCurrent = 0;    //step, incremented through simulation until maximum
     double timeCurrent = 0; //current time 
    
-    //TODO for test 
+    //TODO for test ##################################
     sim.timeStep = 1.0;
     printDrone(dr, true);
+    //dr.state = drone::TURNING;   dr.turnClockwise = false;
 
     while (!hit) {   
+            // move simulation 
+      ++stepCurrent;  
+      timeCurrent += sim.timeStep;  
+
       if (stepCurrent >= kMaxSteps) {
         std::cout << "No hit, simulation time is over!\n";
         output_file.close();
         return 1;
       } 
    
-      sim.updateTargetsPosition(timeCurrent, dr);
+      sim.updateTargetsPosition(timeCurrent, dr);     
+      dr.moveDrone(sim.timeStep);   
 
-      //update drone position   //TODO  updateDronePosition();    
       //reevaluate best target   //TODO reevaluateBestTarget();  
       //analyze drone position re current mission and change its state accordingly //TODO steerDrone(); 
 
 	    saveStep(output_file, stepCurrent, dr);
 
-      //test output  //   printDrone(false);    
-      std::cout << "T0:" << dr.tgts[0].last_known << ' ' << dr.tgts[0].predictPositionAt(timeCurrent); 
-      std::cout <<  " Time=" << timeCurrent << ", steps=" << stepCurrent << std::endl;
-
-      // move simulation 
-      ++stepCurrent;  
-      timeCurrent += sim.timeStep;  
+      // ############### test output     
+    //  std::cout << "T0:" << dr.tgts[0].last_known << ' ' << dr.tgts[0].predictPositionAt(timeCurrent); 
+      std::cout <<  " Time=" << timeCurrent << ", steps=" << stepCurrent << ' '; 
+      std::cout << std::endl;
+    //  printDrone(dr, false);    
+    
     }; //eo while
 
   }

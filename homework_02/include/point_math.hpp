@@ -88,4 +88,7 @@ namespace pointmath {
 
     AngleRad operator-(AngleRad a1, const AngleRad& a2);
 
+    
+    Point cossin(double a); // transform angle to point of 1m radius
+
 }

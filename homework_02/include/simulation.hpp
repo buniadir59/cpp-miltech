@@ -6,9 +6,9 @@
 #include <array>
 
 /* 
-  TargetTrack
-  SimConfig 
-  Simulation::
+simulation  — SimConfig, TargetTrack, update target samples, main simulation mechanics
+
+Simulation::
     updateTargetsPosition
 */
 
@@ -38,7 +38,8 @@ namespace sim {
         :   timeStep{config.time_step},
             tgtTimeStep{config.tgt_time_step}   
         {}   
-
+        
+        void resetTargetsPosition(drone::Drone& dr);
         void updateTargetsPosition(double timeCurrent, drone::Drone& dr);
 
     };

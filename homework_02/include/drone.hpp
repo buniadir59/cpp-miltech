@@ -32,7 +32,7 @@ namespace drone {
     struct DroneConfig {
         pointmath::Point position{};
         double altitude = 0.0;
-        pointmath::AngleRad initial_direction{};
+        double initial_direction{};
         double attack_speed = 0.0;
         double acceleration_path = 0.0;
         std::string ammo_name = "";
@@ -42,10 +42,8 @@ namespace drone {
     };
 
     struct TargetState { //current information on target available to drone
-     //   pointmath::Point previous{};
         pointmath::Point last_known{};
         double last_known_s = 0.0;
-     //   double current_time_s = 0.0;
 
         bool has_previous = false;
         pointmath::Point velocity{}; //estimated velocity from two last known positions
@@ -66,13 +64,18 @@ namespace drone {
         double turnThrld;       //Пороговий кут для зупинки (рад)
         std::string ammoName;   //Ammo ammo;            
 
+        // constant - calculated once and saved for future use
+        double kAccTime;     //time to gain attack speed (acceler time), calculated from acceler path and attack speed    
+	    double kAcc; //calculated from acceler time and attack speed
+
         // changing during simulation:
         int currentTgtTag = -1;     //no mission set
         DroneState state = STOPPED; //assume initial state is full stop
         pointmath::Point coord{};              //initialized from input file
         pointmath::AngleRad dirRad{0};         //напрямок дрона (радіани, від осі X) //initialized from input file
         pointmath::Point dirXY{};              //direction by X and Y (as Point)  according to dirAngleRad
-        double speed = 0.0;               //current speed, m/s
+        double speed = 0.0;                     //current speed, m/s
+        bool turnClockwise = false;             //turn direction
         std::array<drone::TargetState, 5> tgts{}; //known information about targets  to drone
 
         explicit Drone(const DroneConfig& config)
@@ -85,9 +88,19 @@ namespace drone {
             ammoName(config.ammo_name),
             coord{config.position},
             dirRad{config.initial_direction}    
-        {}                                    
+        {
+            setDroneDirection(config.initial_direction); 
+            kAcc = attSpeed * attSpeed / (2 * accPath);
+	        kAccTime = 2 * accPath / attSpeed; //time to accelerete from STOP to ATTACKspeed
+	        //dr.kTimeTurn180 = M_PI / dr.angSpeed; //turn at ready point
+        }       
+        
+        void setDroneDirection (double aR);
+        void moveDrone(double dt);
+
+        const std::string& getDroneStateStr() const;
     };
 
-    const std::string& getDroneStateStr(DroneState state);
+    
 
 } //drone
