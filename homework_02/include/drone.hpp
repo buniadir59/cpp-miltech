@@ -1,6 +1,7 @@
 #pragma once
 
 //#include "ballistics.hpp"
+#include "ballistics.hpp"
 #include "point_math.hpp"
 //#include <numbers>
 #include <string>
@@ -48,8 +49,13 @@ namespace drone {
         bool has_previous = false;
         pointmath::Point velocity{}; //estimated velocity from two last known positions
 
+        ballistics::DropSolution dropRoute{};
+        double time_to_interim, time_total;
         void update(pointmath::Point new_position, double time_s); //receive new "real" position                     
         pointmath::Point predictPositionAt(double future_t_s) const; //for lead targeting
+
+        auto calculateBallisticSolutionAt(double time_s, ballistics::BallisticsInput& input);
+        
     };
     
     enum DroneState { STOPPED=0, ACCELERATING, DECELERATING, TURNING, MOVING };
@@ -66,10 +72,10 @@ namespace drone {
 
         // constant - calculated once and saved for future use
         double kAccTime;     //time to gain attack speed (acceler time), calculated from acceler path and attack speed    
-	    double kAcc; //calculated from acceler time and attack speed
+	      double kAcc; //calculated from acceler time and attack speed
+        double kAccuracy_m = 0.0; //distance to destination to decide it is reached
 
-        // changing during simulation:
-        int currentTgtTag = -1;     //no mission set
+        // changing during simulation:       
         DroneState state = STOPPED; //assume initial state is full stop
         pointmath::Point coord{};              //initialized from input file
         pointmath::AngleRad dirRad{0};         //напрямок дрона (радіани, від осі X) //initialized from input file
@@ -77,6 +83,10 @@ namespace drone {
         double speed = 0.0;                     //current speed, m/s
         bool turnClockwise = false;             //turn direction
         std::array<drone::TargetState, 5> tgts{}; //known information about targets  to drone
+        
+        int currentTgtTag = -1;     //no mission set
+        pointmath::Point destPoint{};
+        DroneState destState{MOVING};
 
         explicit Drone(const DroneConfig& config)
         :   alt{config.altitude},
@@ -91,14 +101,22 @@ namespace drone {
         {
             setDroneDirection(config.initial_direction); 
             kAcc = attSpeed * attSpeed / (2 * accPath);
-	        kAccTime = 2 * accPath / attSpeed; //time to accelerete from STOP to ATTACKspeed
-	        //dr.kTimeTurn180 = M_PI / dr.angSpeed; //turn at ready point
+	          kAccTime = 2 * accPath / attSpeed; //time to accelerete from STOP to ATTACKspeed
         }       
-        
+        //double getDirectionDiff() {};
         void setDroneDirection (double aR);
         void moveDrone(double dt);
+        auto getTurningTime(double angle);
+        auto getTimeToFlyToInterimPoint(double dist);
+        auto getTimeToFlyToFirePoint(double dist);
+        
+        auto getBestTargetAt(double time_s) -> int;
+        auto getTotalTimeForDropRoute(pointmath::Point start, ballistics::DropSolution drop_route);
+        auto startMission(double accuracy_m)-> void;
+        auto steerDrone(double time_now)-> bool;
 
         const std::string& getDroneStateStr() const;
+
     };
 
     

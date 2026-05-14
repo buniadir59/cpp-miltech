@@ -3,7 +3,7 @@
 
 #include <exception>
 #include <fstream>
-//#include <iomanip>
+#include <iomanip>
 #include <iostream>
 #include <cmath>
 #include <string>
@@ -67,24 +67,23 @@ namespace {
                   << "\n\tTurn Threshold, rad: " << dr.turnThrld
                   << "\n\tAmmo: " << dr.ammoName //.ammo.title << ", m=" << dr.ammo.mass << ", d=" << dr.ammo.drag << ", l=" << dr.ammo.lift   
                   << "\n\tHit Radius, m: " << dr.hitRad
-                //  << "\n\tturn180=" << dr.kTimeTurn180 
                   << " t_acc=" << dr.kAccTime << " acc=" << dr.kAcc 
                   << std::endl;
       }
     } 
 
-  /*
-    auto printDropSolution(const ballistics::DropSolution& solution) {
-      std::cout << std::fixed << std::setprecision(3);
 
-      std::cout << "ft_s " << solution.fall_time_s << " fhd_m=" << solution.horizontal_fall_distance_m << ' ';
+    auto printDropSolution(const ballistics::DropSolution& solution) {
+      std::cout << std::fixed << std::setprecision(1);
+
+      std::cout << " ft_s=" << solution.fall_time_s << " fhd_m=" << solution.horizontal_fall_distance_m << ' ';
 
       if (solution.has_intermediate_point) {
         std::cout << solution.intermediate_x << ' ' << solution.intermediate_y ;
       }
 
       std::cout << " " << solution.fire_x << ' ' << solution.fire_y << '\n';
-    }  */
+    }  
 
 // **** helpers: read  input data from files write simulation output to file
 
@@ -128,6 +127,10 @@ namespace {
     return 0;
   }
 
+  auto printNewMission(const drone::Drone& dr) {
+    std::cout << "Starting to T#" << dr.currentTgtTag << " tt=" << dr.tgts[dr.currentTgtTag].time_total << ' ';
+    printDropSolution(dr.tgts[dr.currentTgtTag].dropRoute);
+  }
   /* ***
   * Записати дані кроку у вихідн.файл
   * NB! format differs from requirents in HW doc. The change is agreed 
@@ -160,13 +163,19 @@ auto main() -> int {
     }
 
     bool hit = false;
-    int stepCurrent = 0;    //step, incremented through simulation until maximum
-    double timeCurrent = 0; //current time 
-   
+    int stepCurrent = 0;      //step, incremented through simulation until maximum
+    double timeCurrent = 0.0; //current time 
+    const double kAccuracy_m = dr.attSpeed * sim.timeStep / 2.0;
+
     //TODO for test ##################################
     sim.timeStep = 1.0;
     printDrone(dr, true);
-    //dr.state = drone::TURNING;   dr.turnClockwise = false;
+    
+    dr.currentTgtTag = dr.getBestTargetAt(timeCurrent);
+    dr.startMission(kAccuracy_m);
+
+    printNewMission(dr);
+    
 
     while (!hit) {   
             // move simulation 
@@ -182,17 +191,46 @@ auto main() -> int {
       sim.updateTargetsPosition(timeCurrent, dr);     
       dr.moveDrone(sim.timeStep);   
 
-      //reevaluate best target   //TODO reevaluateBestTarget();  
-      //analyze drone position re current mission and change its state accordingly //TODO steerDrone(); 
+      if (dr.currentTgtTag == -1) {
+        if (dr.destState == drone::STOPPED) {
+          dr.currentTgtTag = dr.getBestTargetAt(timeCurrent);
+          dr.startMission(kAccuracy_m); 
 
+          std::cout << "Starting to T#" << dr.currentTgtTag << " tt=" << dr.tgts[dr.currentTgtTag].time_total << ' ';
+          printDropSolution(dr.tgts[dr.currentTgtTag].dropRoute);
+        }
+      } else {  //analyze drone position on the drop path and change its state accordingly
+        bool fire = dr.steerDrone(timeCurrent); 
+
+        if (fire) {
+          const double time_hit = timeCurrent + dr.tgts[dr.currentTgtTag].dropRoute.fall_time_s;
+          pointmath::Point hit_coord = dr.coord + dr.dirXY * 
+                                        dr.tgts[dr.currentTgtTag].dropRoute.horizontal_fall_distance_m;
+          if (sim.isTgtHit(timeCurrent, dr.currentTgtTag, time_hit, hit_coord)) {
+            hit = true;
+          } else { // not hit, => Decelerate and when Stopped, select new target and start mission
+            dr.currentTgtTag = -1;
+            if (dr.state == drone::STOPPED || dr.state == drone::TURNING) {
+              dr.currentTgtTag = dr.getBestTargetAt(timeCurrent);
+              dr.startMission(kAccuracy_m); 
+
+              printNewMission(dr);
+            } else {
+              dr.state = drone::DECELERATING;
+            }
+          }        
+        }
+      }
+ 
 	    saveStep(output_file, stepCurrent, dr);
 
       // ############### test output     
     //  std::cout << "T0:" << dr.tgts[0].last_known << ' ' << dr.tgts[0].predictPositionAt(timeCurrent); 
       std::cout <<  " Time=" << timeCurrent << ", steps=" << stepCurrent << ' '; 
-      std::cout << std::endl;
-    //  printDrone(dr, false);    
-    
+      printDrone(dr, false);  
+   //   std::cout << std::endl;
+    //    
+
     }; //eo while
 
   }

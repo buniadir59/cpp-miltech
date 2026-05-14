@@ -41,7 +41,7 @@ namespace sim {
         
         void resetTargetsPosition(drone::Drone& dr);
         void updateTargetsPosition(double timeCurrent, drone::Drone& dr);
-
+        auto isTgtHit(double time_now, int tgt_tag, double time_hit, pointmath::Point hit_coord) -> bool;
     };
 
 } //eo namespace sim 

@@ -90,5 +90,11 @@ namespace pointmath {
 
     
     Point cossin(double a); // transform angle to point of 1m radius
+    
+    double getLength(const Point&A_B);
+    double getAngle(const Point&A_B);
+
+    // returns length and angle of vector A_B. if angle is negligible, returns 0
+    void trxPointToDistAngle(const Point&A_B, double& distance, double& angle);
 
 }

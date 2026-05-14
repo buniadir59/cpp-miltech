@@ -38,5 +38,9 @@ void Simulation::updateTargetsPosition(double timeCurrent, drone::Drone& dr) {
     }
 } 
 
+auto Simulation::isTgtHit(double time_now, int tgt_tag, double time_hit, pointmath::Point hit_coord) -> bool {
+
+  return true;
+}
 
 }

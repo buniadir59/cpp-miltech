@@ -8,6 +8,10 @@
   AngleRad
 */
 namespace pointmath {
+namespace  {
+        //angle tolerance  TODO make part of Drone and recalculate ?
+        const double kAngleTolerance = std::atan(0.0003); // = ( 0.1 * 3 / 1000 ); 
+}
     
     AngleRad operator-(AngleRad a1, const AngleRad& a2) { 
             a1 -= a2;
@@ -39,4 +43,22 @@ namespace pointmath {
                 return {std::cos(a), std::sin(a)};
         }
 
+        double getLength(const Point&A_B) { // ***  returns length  of vector A_B
+                return std::hypot(A_B.x, A_B.y); // hypot(A_B);
+        }
+
+
+        double getAngle(const Point&A_B) { // *** returns angle  of vector A_B
+                double angle = std::atan2(A_B.y, A_B.x); //atan2(A_B); //overloaded for Point
+                return std::abs(angle) < kAngleTolerance ? 0.0 : angle;
+        }
+
+        /****
+        * returns length and angle of vector A_B
+        * if angle is negligible, returns 0
+        */
+        void trxPointToDistAngle(const Point&A_B, double& distance, double& angle) { 
+                distance = getLength(A_B);
+                angle = getAngle(A_B); 
+        }
 }
