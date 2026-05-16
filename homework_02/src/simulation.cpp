@@ -3,6 +3,7 @@
 #include "point_math.hpp"
 
 #include <cmath>
+#include <cstddef>
 
 /* 
 simulation  — SimulationConfig, TargetTrack, update target samples, main simulation mechanics
@@ -15,7 +16,7 @@ namespace {  //for helpers
 
 } //namespace for helpers
 
-void Simulation::resetTargetsPosition(drone::Drone& dr) {
+void Simulation::initializeTgtPositions(drone::Drone& dr) {
   last_sample_index = 0;
   for (auto i =0; i < sim::kNtgts; ++i) { 
         pointmath::Point pos = tgt_tracks[i].positions[0];
@@ -23,24 +24,21 @@ void Simulation::resetTargetsPosition(drone::Drone& dr) {
   }
 }
 
-void Simulation::updateTargetsPosition(double timeCurrent, drone::Drone& dr) {
-    const std::size_t sample_index =
-        static_cast<int>(std::floor(timeCurrent / tgtTimeStep));
+//obtaine and send current positions of targets to drone
+auto Simulation::moveTargets(double time_now, drone::Drone& dr) -> void {
+  const double ind_frac = time_now / tgtTimeStep;
+  const double ind_double = std::floor(ind_frac);
+  const std::size_t ind = static_cast<std::size_t>(ind_double) % kTargetSteps;
+  const std::size_t ind_next = (ind + 1) % kTargetSteps;
 
-    if (sample_index != last_sample_index) {
-      last_sample_index = sample_index;
-      std::size_t index = sample_index % sim::kTargetSteps;
+  for (auto i =0; i < sim::kNtgts; ++i) { 
+    sim::TargetTrack& tgt = tgt_tracks[i];
+    pointmath::Point pos = (tgt.positions[ind_next] - tgt_tracks[i].positions[ind]) 
+                          * (ind_frac - ind_double);
+    pos += tgt_tracks[i].positions[ind];
 
-      for (auto i =0; i < sim::kNtgts; ++i) { 
-        pointmath::Point pos = tgt_tracks[i].positions[index];
-        dr.tgts[i].update(pos, timeCurrent);
-      }
-    }
-} 
-
-auto Simulation::isTgtHit(double time_now, int tgt_tag, double time_hit, pointmath::Point hit_coord) -> bool {
-
-  return true;
+    dr.tgts[i].update(pos, time_now); //send new position to drone
+  }
 }
 
 }

@@ -39,9 +39,11 @@ namespace sim {
             tgtTimeStep{config.tgt_time_step}   
         {}   
         
-        void resetTargetsPosition(drone::Drone& dr);
-        void updateTargetsPosition(double timeCurrent, drone::Drone& dr);
-        auto isTgtHit(double time_now, int tgt_tag, double time_hit, pointmath::Point hit_coord) -> bool;
+        auto moveTargets(double time_now, drone::Drone& dr) -> void; //receive "real" (interpolated) positions 
+
+        auto initializeTgtPositions(drone::Drone& dr) -> void;
+     //   void updateTargetsPosition(double timeCurrent, drone::Drone& dr);
+     //   auto getTgtPositionAt(int tgt_tag, double time_hit) -> pointmath::Point;
     };
 
 } //eo namespace sim 
