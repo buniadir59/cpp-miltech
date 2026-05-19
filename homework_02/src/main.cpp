@@ -12,7 +12,7 @@
 
 /* **** defines and contants **** */
 
-#define TEST_NUM_STEPS  
+//#define TEST_MODE
 
 #define OUTPUT_FILE_NAME "simulation.txt"
 #define TARGETS_FILE_NAME "targets.txt"
@@ -28,12 +28,10 @@ namespace {
   std::string kOutputPath = DATA_FOLDER OUTPUT_FILE_NAME;
 
   // ## max number of simulation steps if any target not hit
-#ifdef TEST_NUM_STEPS
+#ifdef TEST_MODE
   constexpr int kMaxSteps = 1000; 
- // constexpr int SEP = '#';
 #else
   constexpr int kMaxSteps = 10000; 
- // constexpr int SEP = ' ';
 #endif
 
   // **** print helpers
@@ -48,7 +46,7 @@ namespace {
     }
 
     std::ostream& operator<<(std::ostream& os, const pointmath::AngleRad& aR) { 
-        return os << ",°:"<< rad2Grad(aR.value) << " ";
+        return os << ",°: "<< rad2Grad(aR.value) << " ";
     }
 
     std::ostream& operator<<(std::ostream& os, const pointmath::Point& p) { 
@@ -70,7 +68,7 @@ namespace {
     std::ostream& operator<<(std::ostream& os, const drone::Mission& m) { 
       if (m.tgtTag < 0) return os << "=>No target";
       
-      return os << "=>T#" << m.tgtTag << " dt,s: " << m.time_to_destination 
+      return os << "=>T#" << m.tgtTag << " dt,s: " << m.timeToDestination 
                 << "  TA" << m.destAngle << " Dest" << m.destPoint 
                 << ' ' << m.missionStateToStr(); 
     }
@@ -80,23 +78,7 @@ namespace {
                 << "; Drop_route: "<< tgt.dropRoute << " total,s: " << tgt.time_total;
     }
 
-    auto printDrone(std::ofstream& of, const drone::Drone& dr, bool full) {
-      
-      //** changing during simulation
-      of        << "Dr:" << dr.coord << " Dir" << dr.dirRad
-                << ' ' << dr.droneStateToStr() << std::endl;
-      if (full) {   //** constant values
-          of      << "\tAltitude,m: " << dr.alt
-                  << "\n\tAttack_Speed,m/s: " << dr.attSpeed
-                  << "\n\tAcceleration_path,m: " << dr.accPath
-                  << "\n\tAngular_Speed,rad: " << dr.angSpeed
-                  << "\n\tTurn_Threshold,rad: " << dr.turnThrld
-                  << "\n\tAmmo: " << dr.ammoName //.ammo.title << ", m=" << dr.ammo.mass << ", d=" << dr.ammo.drag << ", l=" << dr.ammo.lift   
-                  << "\n\tHit_Radius,m:#" << dr.hitRad
-                  << " t_acc,s: " << dr.kAccTime << " acc,m: " << dr.kAcc 
-                  << std::endl;
-      }
-      
+    auto printDrone(const drone::Drone& dr, bool full) {     
       std::cout << "\tDr:" << dr.coord << " Dir" << dr.dirRad
                 << ' ' << dr.droneStateToStr() << std::endl;
       if (full) {   //** constant values
@@ -112,33 +94,27 @@ namespace {
       }
     } 
 
-  auto printTargetState(std::ofstream& of, int tgt_tag, const drone::TargetState& tgt) { 
-           of << "\tT#" << tgt_tag << ' ' << tgt << '\n';
-    std::cout << "\tT#" << tgt_tag << ' ' << tgt << '\n';
-    
+  auto printTargetState(int tgt_tag, const drone::TargetState& tgt) {           
+    std::cout << "\tT#" << tgt_tag << ' ' << tgt << '\n';    
   }
 
-    auto printAllTargets(std::ofstream& of, const drone::Drone& dr) {
+    auto printAllTargets(const drone::Drone& dr) {
       for (auto i = 0; i < sim::kNtgts; ++i) {
-        printTargetState(of, i, dr.tgts[i]);
+        printTargetState(i, dr.tgts[i]);
       }
     }
 
-  auto printNewMission(std::ofstream& of, const drone::Drone& dr) {
-           of << "\tStarting" << dr.mission << '\n'; //.tgtTag << SEP << dr.tgts[dr.mission.tgtTag].dropRoute 
+  auto printNewMission(const drone::Drone& dr) {
     std::cout << "\tStarting" << dr.mission << '\n';
   }
 
-  auto printMission(std::ofstream& of, const drone::Drone& dr) {
-           of << "\tOn" << dr.mission << '\n';
+  auto printMission(const drone::Drone& dr) {          
     std::cout << "\tOn" << dr.mission << '\n';
   }
 
-  auto printMissionResults(std::ofstream& of, bool result, 
+  auto printMissionResults(bool result, 
           double time_of_hit, const pointmath::Point& tgt_pos_at_hit, double hit_dist) {
     const std::string  result_str = result ? "\tMissed!" : "\tHit!";
-    of << result_str << " at,s: " << time_of_hit << " on spot:" << tgt_pos_at_hit 
-      << " Distance to target at hit,m: " << hit_dist << '\n';
     std::cout << result_str << " at,s: " << time_of_hit << " on spot:" << tgt_pos_at_hit 
       << " Distance to target at hit,m: " << hit_dist << '\n';
   }
@@ -212,6 +188,13 @@ namespace {
 
 //################################################################################
 auto main() -> int {
+  bool cout_to_file = false; // Умова: true для файлу, false для консолі
+  std::streambuf* original_buf = nullptr;
+
+#ifdef TEST_MODE //save console to file
+  cout_to_file = true;
+  original_buf = std::cout.rdbuf(); // Зберігаємо оригінальний буфер консолі
+#endif
 
   try {  
 
@@ -229,10 +212,14 @@ auto main() -> int {
       throw std::runtime_error("Unable to open output file: " + kOutputPath);
     }
 
+    if (cout_to_file) {
+      std::cout.rdbuf(output_file.rdbuf()); // Перенаправляємо cout у файл
+    }
+
     std::cout << std::fixed << std::setprecision(1);
     output_file << std::fixed << std::setprecision(2);
  
-    printDrone(output_file, dr, true);     
+    printDrone(dr, true);     
 
     bool isSimOn = true;
     int stepCurrent = 0;      //step, incremented through simulation until maximum
@@ -241,7 +228,7 @@ auto main() -> int {
     dr.startNewMission(sim.timeStep); //calculate first ballistic solutions, skip results
 
     //TODO for test ##################################
-    printAllTargets(output_file, dr);
+    printAllTargets(dr);
 
     // ###############################################
     
@@ -258,11 +245,11 @@ auto main() -> int {
 
       // if we are on the way to target, continue mission 
       if (dr.isOnMission()) {
-        printTargetState(output_file, dr.mission.tgtTag, dr.tgts[dr.mission.tgtTag]);
+        printTargetState(dr.mission.tgtTag, dr.tgts[dr.mission.tgtTag]);
 
-        printMission(output_file, dr);
+        printMission(dr);
         dr.continueMission(sim.timeStep);   //analyze drone position on the drop path and change its state accordingly
-        printMission(output_file, dr); 
+    //    printMission()); 
 
         if (dr.mission.state == drone::FIRED) { //check  hit or miss
             double time_of_hit = dr.getAmmoFlyTime() + timeCurrent;
@@ -270,16 +257,17 @@ auto main() -> int {
             pointmath::Point tgt_pos_at_hit = sim.getTgtPositionAt(dr.mission.tgtTag, time_of_hit);
             double hit_dist = dr.getHitDistance(tgt_pos_at_hit);
             isSimOn = !dr.isTargetHit(hit_dist);          
-            printMissionResults(output_file, isSimOn, time_of_hit, tgt_pos_at_hit, hit_dist);    
+            printMissionResults(isSimOn, time_of_hit, tgt_pos_at_hit, hit_dist);    
         }
       }
       
       // if we are not on the mission (mission failed, or cant be achieved anymore), try to start new one 
       if (!dr.isOnMission()) { 
         dr.mission.tgtTag = dr.startNewMission(sim.timeStep);
-        printAllTargets(output_file, dr);
+        
         if (dr.isOnMission()) {
-          printNewMission(output_file, dr);
+          printAllTargets(dr);
+          printNewMission(dr);
         }
       }   
 
@@ -287,10 +275,14 @@ auto main() -> int {
 
       // ############### test output     
       std::cout << "#" << stepCurrent <<  " (" << timeCurrent  << "s) "; 
-      printDrone(output_file, dr, false);  
+      printDrone(dr, false);  
       // ###############   
 
     }; //eo while
+
+    if (cout_to_file) {
+      std::cout.rdbuf(original_buf); // Обов'язково повертаємо оригінальний буфер 
+    }
 
     output_file.close();
     return dr.mission.state == drone::COMPLETED ? 0 : 1;    

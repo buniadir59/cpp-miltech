@@ -65,6 +65,8 @@ namespace drone {
         double time_to_interim=0.0; //time to reach interim point 
         ballistics::DropSolution dropRoute{};
         
+        auto getSpeed() const -> double { return pointmath::getLength(velocity); }
+
         void update(const pointmath::Point& new_position, double time_s) { //receive new "real"(interpolated) position from simulation  
           if (has_previous) {
               const double dt = time_s - last_known_s; 
@@ -94,9 +96,11 @@ namespace drone {
     struct Mission {
       MissionState state{NONE};
       int tgtTag = -1; 
-      double time_to_destination = 0.0; //time to reach destination, calculated at start of mission
+      double timeToDestination = 0.0; //time to reach destination, calculated at start of mission
+      double maxSpeed = 0.0; //max speed to reach interim point
+      pointmath::Point decelerateAtPoint{0, 0}; //point where to start decceleration to reach interim point
       pointmath::AngleRad destAngle{0.0}; //direction to destination, calculated at start of mission
-      pointmath::Point destPoint{0,0};
+      pointmath::Point destPoint{0, 0};
 
       auto missionStateToStr() const -> std::string {
         switch (state) {
@@ -135,6 +139,9 @@ namespace drone {
         Mission mission{};                     //current mission 
         std::array<drone::TargetState, 5> tgts{};   //known to drone information about targets 
         
+        //TODO for TEST
+        int countMaxRecalc = 0;    //max number of recalculated drop solutions
+
         explicit Drone(const DroneConfig& config)
         :   alt{config.altitude},
             accPath{config.acceleration_path},
