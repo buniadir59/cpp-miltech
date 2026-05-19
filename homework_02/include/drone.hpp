@@ -26,6 +26,9 @@ constexpr int kNtgts = 5;    //number of targets //TODO duplicates the same in s
 constexpr double eps = std::numeric_limits<double>::epsilon(); 
 
 namespace drone {
+
+  auto normalize(double value) -> double;
+    
 /* Input file description:
   Параметр	Тип	Опис
   xd, yd, zd	float	Координати дрона (zd — висота, м)
@@ -38,6 +41,7 @@ namespace drone {
   hitRadius	float	Радіус ураження — допустима похибка попадання (м)
   angularSpeed	float	Кутова швидкість повороту (рад/с)
   turnThreshold	float	Пороговий кут для зупинки (рад) */
+    
     struct DroneConfig {
         pointmath::Point position{};
         double altitude = 0.0;
@@ -51,16 +55,17 @@ namespace drone {
     };
 
     struct TargetState { //current information on target available to drone
-        pointmath::Point last_known{};
-        double last_known_s = 0.0;
-
         bool has_previous = false;
+        double last_known_s = 0.0;
+        pointmath::Point last_known{};
         pointmath::Point velocity{}; //estimated velocity from two last known positions
 
+        double time_accuracy=0.0;
+        double time_total=0.0;
+        double time_to_interim=0.0; //time to reach interim point 
         ballistics::DropSolution dropRoute{};
-        double time_to_interim, time_total;
-
-        void update(pointmath::Point new_position, double time_s) { //receive new "real"(interpolated) position from simulation  
+        
+        void update(const pointmath::Point& new_position, double time_s) { //receive new "real"(interpolated) position from simulation  
           if (has_previous) {
               const double dt = time_s - last_known_s; 
               velocity = (new_position - last_known) / dt;
@@ -88,8 +93,22 @@ namespace drone {
 
     struct Mission {
       MissionState state{NONE};
-      int tgtTag = -1; //TODO ? if needed?
+      int tgtTag = -1; 
+      double time_to_destination = 0.0; //time to reach destination, calculated at start of mission
+      pointmath::AngleRad destAngle{0.0}; //direction to destination, calculated at start of mission
       pointmath::Point destPoint{0,0};
+
+      auto missionStateToStr() const -> std::string {
+        switch (state) {
+            case NONE: return "NONE";
+            case TO_INTERIMP: return "TO_INTERIMP";
+            case TO_FIREP: return "TO_FIREP";
+            case FIRED: return "FIRED";
+            case FAILED: return "FAILED";
+            case COMPLETED: return "COMPLETED";
+            default: return "UNKNOWN_STATE";
+        }
+      }
     };
 
     struct Drone {
@@ -107,18 +126,15 @@ namespace drone {
 	      double kAcc; //calculated from acceler time and attack speed
         double kAccuracy_m = 0.0; //distance to destination to decide it is reached
 
-        // changing during simulation:       
+        // changing during simulation:    
+        double speed = 0.0;         //current speed, m/s
         DroneState state = STOPPED; //assume initial state is full stop
         pointmath::Point coord{};              //initialized from input file
-        pointmath::AngleRad dirRad{0.0};         //напрямок дрона (радіани, від осі X) //initialized from input file
         pointmath::Point dirXY{};              //direction by X and Y (as Point)  according to dirAngleRad
-        double speed = 0.0;                     //current speed, m/s
-        bool turnClockwise = false;             //turn direction
-        std::array<drone::TargetState, 5> tgts{}; //known information about targets  to drone
+        pointmath::AngleRad dirRad{0.0};       //напрямок дрона (радіани, від осі X) //initialized from input file                      
+        Mission mission{};                     //current mission 
+        std::array<drone::TargetState, 5> tgts{};   //known to drone information about targets 
         
-        Mission mission{};
-        TargetState& currentTgt{tgts[0]};     //no mission set
-
         explicit Drone(const DroneConfig& config)
         :   alt{config.altitude},
             accPath{config.acceleration_path},
@@ -144,19 +160,27 @@ namespace drone {
         auto getTimeToFlyToInterimPoint(double dist);
         auto getTimeToFlyToFirePoint(double dist);
         
-
-        auto getBestTargetAt(double time_s) -> int;
-        auto getTotalTimeForDropRoute(pointmath::Point start, ballistics::DropSolution drop_route);
+        auto getBestTarget() -> int;
+        auto calculateTimeForDropRoute(pointmath::Point start, TargetState& tgt) -> double; 
         
-        auto startNewMission(double time_step) -> bool;
+        auto breakMission() { mission.state = NONE; mission.tgtTag = -1; }  
+        auto startNewMission(double time_step) -> int;       
+        auto continueMission(double t_step) -> MissionState;
+        auto getHitDistance(pointmath::Point tgt_pos_at_hit) -> double;
         
-        auto continueMission() -> MissionState;//TODO auto steerDrone(double time_now)-> bool; 
+        auto isTargetHit(double hit_dist)-> bool { return hit_dist <= hitRad; }
 
-        auto isMissionSuccessful(pointmath::Point tgt_pos_at_hit) -> bool;
-
-
-        const std::string& getDroneStateStr() const;
-
+        auto droneStateToStr() const -> std::string  {
+        switch (state) {
+            case STOPPED: return "STOPPED";
+            case ACCELERATING: return "ACCELERATING";
+            case DECELERATING: return "DECELERATING";
+            case TURNING: return "TURNING";
+            case MOVING: return "MOVING";
+            default: return "UNKNOWN_STATE";
+        }
+      }
+      
     };
 
     

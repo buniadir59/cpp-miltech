@@ -53,20 +53,37 @@
       ]
     },
     {
-      // Локальний debug  Д2 - збирає debug preset.
       "name": "Debug homework_02: drone_sim",
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/build/debug/homework_02/hw2_drone_sim",
       "args": [],
-      "stopAtEntry": false,
+      "stopAtEntry": true,
       "cwd": "${workspaceFolder}",
-      "environment": [],
+      "environment": [
+        {
+          "name": "DEBUGINFOD_URLS",
+          "value": ""
+        }
+      ],
       "externalConsole": false,
       "MIMode": "gdb",
-      "miDebuggerPath": "/usr/bin/gdb",
+      "miDebuggerPath": "/usr/bin/gdb",,
+      "symbolLoadInfo": {
+        "loadAll": false
+      },
       "preLaunchTask": "CMake: configure and build",
       "setupCommands": [
+        {
+          "description": "Disable debuginfod downloads",
+          "text": "-gdb-set debuginfod enabled off",
+          "ignoreFailures": true
+        },
+        {
+          "description": "Do not auto-load shared library symbols",
+          "text": "-gdb-set auto-solib-add off",
+          "ignoreFailures": true
+        },
         {
           "description": "Увімкнути pretty-printing для STL типів у GDB.",
           "text": "-enable-pretty-printing",

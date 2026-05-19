@@ -19,7 +19,7 @@ namespace sim {
     };
 
     constexpr int kNtgts = 5;    //number of targets
-    inline constexpr std::size_t kTargetSteps = 60; //length of simulation cycle for target coordinates
+    constexpr std::size_t kTargetSteps = 60; //length of simulation cycle for target coordinates
     
     struct TargetTrack {         //from targets.txt
         std::array<pointmath::Point, kTargetSteps> positions{};
@@ -30,8 +30,10 @@ namespace sim {
         double timeStep;        // simulation step (sec) 
         double tgtTimeStep;     // target simulation step (sec)               
     
+     //   double timeToCompleteCurrentMission{}; //time to complete current mission, if any, otherwise 0.0
+
         //**** targets positions simulation data  
-        std::size_t last_sample_index = kTargetSteps; // != 0 => target positions will be updated when simulation starts
+     //   std::size_t last_sample_index = kTargetSteps; // != 0 => target positions will be updated when simulation starts
         std::array<sim::TargetTrack, 5> tgt_tracks{};
 
         explicit Simulation(const SimConfig& config)
@@ -43,7 +45,7 @@ namespace sim {
 
         auto initializeTgtPositions(drone::Drone& dr) -> void;
      //   void updateTargetsPosition(double timeCurrent, drone::Drone& dr);
-     //   auto getTgtPositionAt(int tgt_tag, double time_hit) -> pointmath::Point;
+        auto getTgtPositionAt(int tgt_tag, double time_s) -> pointmath::Point;
     };
 
 } //eo namespace sim 

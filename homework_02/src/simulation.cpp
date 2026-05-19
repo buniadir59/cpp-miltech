@@ -17,11 +17,24 @@ namespace {  //for helpers
 } //namespace for helpers
 
 void Simulation::initializeTgtPositions(drone::Drone& dr) {
-  last_sample_index = 0;
+ // last_sample_index = 0;
   for (auto i =0; i < sim::kNtgts; ++i) { 
         pointmath::Point pos = tgt_tracks[i].positions[0];
         dr.tgts[i].update(pos, 0.0);
   }
+}
+
+auto Simulation::getTgtPositionAt(int tgt_tag, double time_s) -> pointmath::Point {
+  const double ind_frac = time_s / tgtTimeStep;
+  const double ind_double = std::floor(ind_frac);
+  const std::size_t ind = static_cast<std::size_t>(ind_double) % kTargetSteps;
+  const std::size_t ind_next = (ind + 1) % kTargetSteps;
+
+  sim::TargetTrack& track = tgt_tracks[tgt_tag];
+  pointmath::Point pos = (track.positions[ind_next] - track.positions[ind]) 
+                          * (ind_frac - ind_double);
+  pos += track.positions[ind];
+  return pos;
 }
 
 //obtaine and send current positions of targets to drone
@@ -32,10 +45,10 @@ auto Simulation::moveTargets(double time_now, drone::Drone& dr) -> void {
   const std::size_t ind_next = (ind + 1) % kTargetSteps;
 
   for (auto i =0; i < sim::kNtgts; ++i) { 
-    sim::TargetTrack& tgt = tgt_tracks[i];
-    pointmath::Point pos = (tgt.positions[ind_next] - tgt_tracks[i].positions[ind]) 
+    sim::TargetTrack& track = tgt_tracks[i];
+    pointmath::Point pos = (track.positions[ind_next] - track.positions[ind]) 
                           * (ind_frac - ind_double);
-    pos += tgt_tracks[i].positions[ind];
+    pos += track.positions[ind];
 
     dr.tgts[i].update(pos, time_now); //send new position to drone
   }

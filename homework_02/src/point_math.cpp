@@ -8,10 +8,21 @@
   AngleRad
 */
 namespace pointmath {
+
 namespace  {
         //angle tolerance  TODO make part of Drone and recalculate ?
         const double kAngleTolerance = std::atan(0.0003); // = ( 0.1 * 3 / 1000 ); 
 }
+    
+    auto normalizeAngle(double value) -> double {
+            while (value > std::numbers::pi ) {
+                value -= 2 * std::numbers::pi ;
+            }
+            while (value <= -std::numbers::pi ) {
+                value += 2 * std::numbers::pi ;
+            }
+            return value;
+    }
     
     AngleRad operator-(AngleRad a1, const AngleRad& a2) { 
             a1 -= a2;
