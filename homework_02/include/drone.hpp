@@ -1,10 +1,8 @@
 #pragma once
 
-//#include "ballistics.hpp"
 #include "ballistics.hpp"
 #include "point_math.hpp"
 
-//#include <numbers>
 #include <limits>
 #include <string>
 #include <array>
@@ -18,14 +16,15 @@
 
   DroneConfig:: for initial data from input file 
   Drone::
-    update drone params //TODO   
-    choose target //TODO
+    update drone params 
+    choose target 
   */
 
-constexpr int kNtgts = 5;    //number of targets //TODO duplicates the same in simulation (((
-constexpr double eps = std::numeric_limits<double>::epsilon(); 
+constexpr int kNtgts = 5;    //number of targets
+
 
 namespace drone {
+  constexpr double eps = std::numeric_limits<double>::epsilon(); 
 
   auto normalize(double value) -> double;
     
@@ -70,7 +69,7 @@ namespace drone {
         void update(const pointmath::Point& new_position, double time_s) { //receive new "real"(interpolated) position from simulation  
           if (has_previous) {
               const double dt = time_s - last_known_s; 
-              velocity = (new_position - last_known) / dt;
+              if (dt > eps) velocity = (new_position - last_known) / dt;
           } else { //velocity stays 0
               has_previous = true;
           }
@@ -81,7 +80,7 @@ namespace drone {
 
         pointmath::Point getLeadPosition(double delta_t) const { return last_known + velocity * (delta_t); }; //projected position for lead targeting
 
-        auto calculateBallisticSolutionAt(double delta_t, ballistics::BallisticsInput& input)  {    
+        auto calculateBallisticSolutionAt(double delta_t, ballistics::BallisticsInput& input)-> void  {    
           pointmath::Point pos_at_time = getLeadPosition(delta_t);
           input.target_x = pos_at_time.x;
           input.target_y = pos_at_time.y;
@@ -139,7 +138,6 @@ namespace drone {
         Mission mission{};                     //current mission 
         std::array<drone::TargetState, 5> tgts{};   //known to drone information about targets 
         
-        //TODO for TEST
         int countMaxRecalc = 0;    //max number of recalculated drop solutions
 
         explicit Drone(const DroneConfig& config)
@@ -158,24 +156,24 @@ namespace drone {
 	          kAccTime = 2 * accPath / attSpeed; //time to accelerete from STOP to ATTACKspeed
         }       
         
-        auto isOnMission() {return mission.tgtTag >= 0;};
-        auto getAmmoFlyTime() -> double;
+        auto isOnMission() const -> bool { return mission.tgtTag >= 0; }
+        auto getAmmoFlyTime() const -> double;
 
         void setDroneDirection (double aR){ dirRad = aR; dirXY = pointmath::cossin(dirRad.value); };
         void moveDrone(double dt);
-        auto getTurningTime(double angle);
-        auto getTimeToFlyToInterimPoint(double dist);
-        auto getTimeToFlyToFirePoint(double dist);
+        auto getTurningTime(double angle) const -> double;
+        auto getTimeToFlyToInterimPoint(double dist) const -> double;
+        auto getTimeToFlyToFirePoint(double dist) const -> double;
         
         auto getBestTarget() -> int;
         auto calculateTimeForDropRoute(pointmath::Point start, TargetState& tgt) -> double; 
         
-        auto breakMission() { mission.state = NONE; mission.tgtTag = -1; }  
+        auto breakMission()-> void  { mission.state = NONE; mission.tgtTag = -1; }  
         auto startNewMission(double time_step) -> int;       
         auto continueMission(double t_step) -> MissionState;
         auto getHitDistance(pointmath::Point tgt_pos_at_hit) -> double;
         
-        auto isTargetHit(double hit_dist)-> bool { return hit_dist <= hitRad; }
+        auto isTargetHit(double hit_dist) const -> bool { return hit_dist <= hitRad; }
 
         auto droneStateToStr() const -> std::string  {
         switch (state) {

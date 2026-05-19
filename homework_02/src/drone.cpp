@@ -1,7 +1,6 @@
 #include "drone.hpp"
 #include "point_math.hpp"
 #include "ballistics.hpp"
-//#include "simulation.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -17,8 +16,8 @@
 
   DroneConfig:: for initial data from input file 
   Drone::
-    update drone params //TODO   
-    choose target //TODO
+    update drone params  
+    choose target  
   */
 
 namespace drone {
@@ -40,21 +39,21 @@ namespace {  //for helpers #####################################################
 
 } //eo namespace for helpers #####################
 
-// TODO class private funcs ############
-    auto Drone::getAmmoFlyTime() -> double { //TODO not used ?
+// to be class private funcs ############
+    auto Drone::getAmmoFlyTime() const -> double { 
         return  tgts[0].dropRoute.fall_time_s; //it does not depend on target, so we can take any
     };
 
     /**** returns time to turn from  current drone direction to angle
     * returns 0 if absolute turn value is less than threshold  //
     */  
-    auto Drone::getTurningTime(double angle) {
+    auto Drone::getTurningTime(double angle) const -> double {
         pointmath::AngleRad delta = angle - dirRad; //it shall normalize the diff
         double absvalue = std::abs(delta.value);
         return absvalue < turnThrld ? 0.0  : absvalue / angSpeed;
     }
     
-    auto Drone::getTimeToFlyToInterimPoint(double dist) { 
+    auto Drone::getTimeToFlyToInterimPoint(double dist) const -> double { 
         //we assume, starting and final drone states are Stopped 
         double cruize_dist = dist - 2.0 * accPath;
     
@@ -66,7 +65,7 @@ namespace {  //for helpers #####################################################
         }
     }
 
-    auto Drone::getTimeToFlyToFirePoint(double dist) {
+    auto Drone::getTimeToFlyToFirePoint(double dist) const -> double  {
         // we assume, starting drone state is Stopped, and and final - Moving
         const double cruizeDist = dist - accPath;
         if (cruizeDist > eps) {
@@ -81,17 +80,27 @@ namespace {  //for helpers #####################################################
         double total_time{};
         double time_to_interim{};
 
-        if (tgt.dropRoute.has_intermediate_point) {
+        if (tgt.dropRoute.has_intermediate_point) { //TODO check here if we are at the Int point practically
                 pointmath::Point pos_int = {drop_route.intermediate_x, drop_route.intermediate_y};
-                double dist, angle;
-                pointmath::trxPointToDistAngle(pos_int - start, dist, angle);
-                time_to_interim = getTurningTime(angle);
-                time_to_interim += getTimeToFlyToInterimPoint(dist);
+                double dist_to_interim = 0.0;
+                double angle_to_interim = 0.0;
+                pointmath::trxPointToDistAngle(pos_int - start, dist_to_interim, angle_to_interim);
+
+                time_to_interim = getTurningTime(angle_to_interim);
+                time_to_interim += getTimeToFlyToInterimPoint(dist_to_interim);
+
+                double dist_to_fire = 0.0;
+                double angle_to_fire = 0.0;
+                pointmath::trxPointToDistAngle(pos_fire - pos_int, dist_to_fire, angle_to_fire);
+
+                pointmath::AngleRad turn_between_legs = pointmath::AngleRad(angle_to_fire - angle_to_interim); 
+                        //    - pointmath::AngleRad(angle_to_interim);
+
                 total_time = time_to_interim;
-                pointmath::trxPointToDistAngle(pos_fire - pos_int, dist, angle);
-                total_time += getTimeToFlyToFirePoint(dist);
-                total_time += getTurningTime(angle);
-                tgt.time_to_interim = time_to_interim;
+                total_time += std::abs(turn_between_legs.value) < turnThrld
+                                    ? 0.0 : std::abs(turn_between_legs.value) / angSpeed;
+                total_time += getTimeToFlyToFirePoint(dist_to_fire);
+
         } else {
                 double dist, angle;
                 pointmath::trxPointToDistAngle(pos_fire  - start, dist, angle);
@@ -114,21 +123,22 @@ namespace {  //for helpers #####################################################
         for (auto i=0; i < kNtgts; ++i) {     
             TargetState& tgt = tgts[i];       
             tgt.calculateBallisticSolutionAt(tgt.time_total + ammo_fall_time, input); 
-            const double total_time = calculateTimeForDropRoute(coord, tgt);
+            double total_time = calculateTimeForDropRoute(coord, tgt);
             
             const double tgt_speed = tgt.getSpeed();
             if (tgt_speed > eps) { //we shall not calculate time accuracy for still target
                 const double accuracy_s =  std::max(kAccuracy_m / tgt_speed, 0.1); 
 
                 int count = 0;  
+                constexpr int kMaxRecalculations = 20;
                 // check time accuracy and maybe repeat calculations 
-                while (std::abs(tgt.time_accuracy) > accuracy_s) { //we are not accurate enough, so we can try to recalculate with new time estimation
+                while (std::abs(tgt.time_accuracy) > accuracy_s  && count < kMaxRecalculations) { //we are not accurate enough, so we can try to recalculate with new time estimation
                     count++;
                     tgt.calculateBallisticSolutionAt(total_time + ammo_fall_time, input); 
-                    calculateTimeForDropRoute(coord, tgt);                
+                    total_time = calculateTimeForDropRoute(coord, tgt);                
                 }
 
-                if (count > countMaxRecalc) countMaxRecalc = count; //TODO for TEST
+                if (count > countMaxRecalc) countMaxRecalc = count; 
             }
 
             if (total_time < bestTT) {
@@ -140,7 +150,7 @@ namespace {  //for helpers #####################################################
         return bestTag;
     }  
 
-// TODO class public funcs ############
+// to be class public funcs ############
     auto Drone::startNewMission(double time_step) -> int {
         if (!((state == STOPPED) || (state == TURNING))) { //wait till Stopped
                 state = DECELERATING; // @start new mission
@@ -185,16 +195,17 @@ namespace {  //for helpers #####################################################
         }
 
         if (mission.state == TO_INTERIMP) {
-            //calculate additional parameters           
-            double dist_to_interim = pointmath::getLength(dest - coord);
-            if (dist_to_interim - 2.0 * attSpeed > eps ) { 
-                mission.maxSpeed = std::sqrt(dist_to_interim * kAcc);
-                mission.decelerateAtPoint = mission.destPoint - pointmath::cossin(accPath);
+            const double dist_to_interim = pointmath::getLength(dest - coord);
+            const pointmath::Point dir_to_dest = pointmath::cossin(mission.destAngle.value);
+
+            if (dist_to_interim > 2.0 * accPath) {
+                mission.maxSpeed = attSpeed;
+                mission.decelerateAtPoint = mission.destPoint - dir_to_dest * accPath;
             } else {
-                 mission.maxSpeed = std::sqrt(dist_to_interim * kAcc);
-                 mission.decelerateAtPoint = coord + pointmath::cossin(dist_to_interim / 2.0);
-            }          
-        } 
+                mission.maxSpeed = std::sqrt(dist_to_interim * kAcc);
+                mission.decelerateAtPoint = coord + dir_to_dest * (dist_to_interim / 2.0);
+            }
+        }
    
         return tgt_tag;
     };
@@ -204,10 +215,7 @@ namespace {  //for helpers #####################################################
     * turn on the move if needed
     * returns mission status
     */
-    auto Drone::continueMission(double t_step) -> MissionState {  // TODO     //NONE, TO_INTERIMP, TO_FIREP, FIRED, FAILED, COMPLETED
-        if (mission.state == TO_INTERIMP) {
-            //break here for TEST //TODO
-        }
+    auto Drone::continueMission(double t_step) -> MissionState {  
 
         mission.timeToDestination -= t_step; 
 
@@ -236,7 +244,7 @@ namespace {  //for helpers #####################################################
                     if (speed != 0.0) {
                         state = DECELERATING;  //@continue mission
                     } else state = STOPPED;
-                    return NONE; //not hit, simulation is over TODO ???
+                    return NONE; //not hit
                 }
                 
             } 
@@ -245,17 +253,20 @@ namespace {  //for helpers #####################################################
             mission.destAngle = angle2tgt; //update destination according to lead targeting
             mission.destPoint = coord + pointmath::cossin(angle2tgt) * delta2fp;  
             mission.timeToDestination = delta2fp /attSpeed; //update time to destination according to new distance to fire point and time to fly there
-            if (std::abs(angle2tgt - dirRad.value) < turnThrld) { //steer at target on the move
+            pointmath::AngleRad delta_angle = pointmath::AngleRad(angle2tgt) - dirRad;
+
+            if (std::abs(delta_angle.value) < turnThrld) {
                 setDroneDirection(angle2tgt);
-                if (state == TURNING) state = ACCELERATING; //???
+                if (state == TURNING) {
+                    state = ACCELERATING;
+                }
             } else if (state == STOPPED) {
                 state = TURNING;
             } else if (state != TURNING) { //we are moving, but need to turn, so stop and reevaluate
                 if (state != STOPPED) state = DECELERATING;  //@continue mission
                 breakMission(); //mission.state = NONE; mission.tgtTag = -1; //mission failed, we will reevaluate target and try again
                 return NONE; 
-            } 
-                       
+            }                       
             }
             break;
 
@@ -287,16 +298,16 @@ namespace {  //for helpers #####################################################
                     state = DECELERATING;
                 }
             }
-            //else  if (state == TURNING) {}   //continue to interim until Accelerating at Move
-           //else if (state == DECELERATING) { }  //continue to interim  until Stopped
+            // if state == TURNING) - continue to interim until Accelerating at Move
+            // if state == DECELERATING) - continue to interim  until Stopped
            
             }   
             break;
 
    default: //COMPLETED FAILED NONE
             throw std::runtime_error("ERR_TODO -mission state not implemented in continueMission: " 
-                + mission.missionStateToStr()); //missionStateToStr(mission.state));
-            break; //TODO
+                + mission.missionStateToStr()); 
+            break; 
         }
 
         return mission.state;
@@ -322,9 +333,6 @@ namespace {  //for helpers #####################################################
     * NB! drone state is only changes when Accelerating or Decelerating on reaching attack speed or 0-speed accordingly
     */
     void Drone::moveDrone(double  dt) { 
-        if (mission.state == TO_INTERIMP) {
-            //break here for TEST //TODO
-        }
 
         switch (state) {
         case STOPPED: //waiting the results of previous mission, no move, no state change
@@ -337,13 +345,6 @@ namespace {  //for helpers #####################################################
                 if ((delta_angle <= turnThrld) || (delta_angle <= dval)) { //turn is completed
                     setDroneDirection(mission.destAngle.value);
                     state = ACCELERATING;
-                    /*if (mission.state == TO_INTERIMP) { !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                        mission.state = TO_FIREP; //just completed turn to FP
-                        mission.destPoint = getFP(tgts[mission.tgtTag].dropRoute);
-                        mission.destAngle = 
-                    } else if (mission.state == TO_FIREP) {
-                         //start move to fire point
-                    }*/
                     break;
                 }
             

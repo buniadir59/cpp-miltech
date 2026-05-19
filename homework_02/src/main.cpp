@@ -98,11 +98,13 @@ namespace {
     std::cout << "\tT#" << tgt_tag << ' ' << tgt << '\n';    
   }
 
+#ifdef TEST_MODE 
     auto printAllTargets(const drone::Drone& dr) {
       for (auto i = 0; i < sim::kNtgts; ++i) {
         printTargetState(i, dr.tgts[i]);
       }
     }
+#endif
 
   auto printNewMission(const drone::Drone& dr) {
     std::cout << "\tStarting" << dr.mission << '\n';
@@ -227,11 +229,9 @@ auto main() -> int {
     sim.initializeTgtPositions(dr);
     dr.startNewMission(sim.timeStep); //calculate first ballistic solutions, skip results
 
-    //TODO for test ##################################
+#ifdef TEST_MODE 
     printAllTargets(dr);
-
-    // ###############################################
-    
+#endif    
     saveStep(output_file, stepCurrent, dr); //save step 0 data
 
     while (isSimOn) {   
@@ -249,7 +249,6 @@ auto main() -> int {
 
         printMission(dr);
         dr.continueMission(sim.timeStep);   //analyze drone position on the drop path and change its state accordingly
-    //    printMission()); 
 
         if (dr.mission.state == drone::FIRED) { //check  hit or miss
             double time_of_hit = dr.getAmmoFlyTime() + timeCurrent;
@@ -266,7 +265,9 @@ auto main() -> int {
         dr.mission.tgtTag = dr.startNewMission(sim.timeStep);
         
         if (dr.isOnMission()) {
+#ifdef TEST_MODE 
           printAllTargets(dr);
+#endif  
           printNewMission(dr);
         }
       }   
