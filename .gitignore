@@ -36,3 +36,5 @@ Thumbs.db
 # Runtime output files produced by homework CLI programs.
 output.txt
 
+# Local clangd cache
+.cache/
