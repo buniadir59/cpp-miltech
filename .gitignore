@@ -12,6 +12,7 @@ cmake_install.cmake
 compile_commands.json
 install_manifest.txt
 _deps/
+.cache/
 
 # Мінімальний набір compiled/debug артефактів для C++ прикладів.
 *.d
@@ -31,6 +32,9 @@ core.*
 # Метадані операційної системи не є частиною навчального репозиторію.
 .DS_Store
 Thumbs.db
+
+# Runtime output files produced by homework CLI programs.
+output.txt
 
 # Local clangd cache
 .cache/

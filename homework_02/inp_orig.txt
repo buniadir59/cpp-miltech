@@ -1,0 +1,24 @@
+
+Параметр	Тип	Опис
+xd, yd, zd	float	Координати дрона (zd — висота, м)
+initialDir	float	Початковий напрямок дрона (радіани, від осі X)
+attackSpeed	float	Швидкість атаки дрона (м/с)
+accPath	    float	Довжина розгону/гальмування (м)
+ammo_name	char[]	Назва боєприпасу (див. таблицю боєприпасів)
+arrayTimeStep	float	Крок часу масиву координат цілей (с)    (like 5s)
+simTimeStep	float	Крок часу симуляції (с)                     (like 0.1s)
+hitRadius	float	Радіус ураження — допустима похибка попадання (м)
+angularSpeed	float	Кутова швидкість повороту (рад/с)
+turnThreshold	float	Пороговий кут для зупинки (рад)
+
+//original
+150 150 100
+0
+10
+10
+VOG-17
+5
+0.1
+3
+1
+0.1   

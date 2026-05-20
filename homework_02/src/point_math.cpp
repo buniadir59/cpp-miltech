@@ -1,0 +1,75 @@
+#include "point_math.hpp"
+
+#include <cmath>
+
+
+/*
+  Point
+  AngleRad
+*/
+namespace pointmath {
+
+namespace  {
+        //angle tolerance  TODO make part of Drone and recalculate ?
+        const double kAngleTolerance = std::atan(0.0003); // = ( 0.1 * 3 / 1000 ); 
+}
+    
+    auto normalizeAngle(double value) -> double {
+            while (value > std::numbers::pi ) {
+                value -= 2 * std::numbers::pi ;
+            }
+            while (value <= -std::numbers::pi ) {
+                value += 2 * std::numbers::pi ;
+            }
+            return value;
+    }
+    
+    AngleRad operator-(AngleRad a1, const AngleRad& a2) { 
+            a1 -= a2;
+            return a1;
+    } 
+
+    Point operator+(Point a1, const Point& a2) { 
+            a1 += a2; 
+            return a1; 
+    }
+        
+    Point operator-(Point a1, const Point& a2) { 
+            a1 -= a2;
+            return a1;
+    }
+
+    Point operator*(Point a1, double k) { 
+            a1 *= k;
+            return a1;
+    }
+
+    Point operator/(Point a1, double k) {   // check k !=0 before calling!
+            a1 /= k;
+            return a1;
+    } 
+
+        // **** transform angle to point of 1m radius
+        Point cossin(double a) { 
+                return {std::cos(a), std::sin(a)};
+        }
+
+        double getLength(const Point&A_B) { // ***  returns length  of vector A_B
+                return std::hypot(A_B.x, A_B.y); // hypot(A_B);
+        }
+
+
+        double getAngle(const Point&A_B) { // *** returns angle  of vector A_B
+                double angle = std::atan2(A_B.y, A_B.x); //atan2(A_B); //overloaded for Point
+                return std::abs(angle) < kAngleTolerance ? 0.0 : angle;
+        }
+
+        /****
+        * returns length and angle of vector A_B
+        * if angle is negligible, returns 0
+        */
+        void trxPointToDistAngle(const Point&A_B, double& distance, double& angle) { 
+                distance = getLength(A_B);
+                angle = getAngle(A_B); 
+        }
+}
