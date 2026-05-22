@@ -1,5 +1,6 @@
-#ifndef HOMEWORK_06_BALLISTICS_HPP
-#define HOMEWORK_06_BALLISTICS_HPP
+#pragma once
+
+#include "point_math.hpp"
 
 #include <string>
 
@@ -31,8 +32,8 @@ struct DropSolution {
   double horizontal_fall_distance_m = 0.0;
 };
 
+std::ostream& operator<<(std::ostream& os, const ballistics::DropSolution& ds);
+
 auto compute_drop_solution(const BallisticsInput& input) -> DropSolution;
 
 }  // namespace ballistics
-
-#endif  // HOMEWORK_06_BALLISTICS_HPP

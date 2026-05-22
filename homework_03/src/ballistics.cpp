@@ -193,4 +193,14 @@ auto compute_drop_solution(const BallisticsInput& input) -> DropSolution
   return solution;
 }
 
+
+  std::ostream& operator<<(std::ostream& os, const ballistics::DropSolution& ds) { 
+      pointmath::Point iP = {ds.intermediate_x, ds.intermediate_y };
+      pointmath::Point fP ={ds.fire_x, ds.fire_y};
+      if (ds.has_intermediate_point) {
+        pointmath::Point iP = {ds.intermediate_x, ds.intermediate_y };
+        return os << " I" << iP << " F" << fP;
+      }
+      return os << " F" << fP;
+  } 
 }  // namespace ballistics

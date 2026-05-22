@@ -6,6 +6,7 @@
 #include <limits>
 #include <string>
 #include <array>
+#include <iostream>
 
 /* **** drone.hpp / drone.cpp 
   TargetState::
@@ -27,6 +28,7 @@ namespace drone {
   constexpr double eps = std::numeric_limits<double>::epsilon(); 
 
   auto normalize(double value) -> double;
+
     
 /* Input file description:
   Параметр	Тип	Опис
@@ -85,8 +87,10 @@ namespace drone {
           input.target_x = pos_at_time.x;
           input.target_y = pos_at_time.y;
           dropRoute = ballistics::compute_drop_solution(input);
-        };      
+        };     
     }; //eo TargetState
+
+    std::ostream& operator<<(std::ostream& os, const drone::TargetState& tgt);
     
     enum DroneState { STOPPED=0, ACCELERATING, DECELERATING, TURNING, MOVING };
 
@@ -113,6 +117,8 @@ namespace drone {
         }
       }
     };
+    
+    std::ostream& operator<<(std::ostream& os, const drone::Mission& m);
 
     struct Drone {
         // constant - obtained from input data: 

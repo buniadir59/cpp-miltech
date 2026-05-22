@@ -72,4 +72,23 @@ namespace  {
                 distance = getLength(A_B);
                 angle = getAngle(A_B); 
         }
+
+        auto fixNegativeZero(double val, int precision) -> double {
+                double absV = std::abs(val);
+                return absV < 1 / pow(10, precision) ? 0.0 : val;
+        }
+
+        auto rad2Grad(double ang) -> int {  //utility for better human presentation
+                return static_cast<int>(round(ang/M_PI*180)); 
+        }
+
+        std::ostream& operator<<(std::ostream& os, const pointmath::AngleRad& aR) { 
+                return os << ",°: "<< rad2Grad(aR.value) << " ";
+        }
+
+        std::ostream& operator<<(std::ostream& os, const pointmath::Point& p) { 
+                int prec = &os == &std::cout ? 1 : 2;
+                return os << "( " << fixNegativeZero(p.x, prec) << ", " 
+                                << fixNegativeZero(p.y, prec)  << " )";
+        }
 }

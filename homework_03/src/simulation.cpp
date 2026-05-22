@@ -16,24 +16,26 @@ namespace {  //for helpers
 
 } //namespace for helpers
 
+
+
 void Simulation::initializeTgtPositions(drone::Drone& dr) {
- // last_sample_index = 0;
-  for (auto i =0; i < sim::kNtgts; ++i) { 
-        pointmath::Point pos = tgt_tracks[i].positions[0];
+ 
+  for (size_t i =0; i < nTgts; ++i) { 
+        pointmath::Point pos = tgtTracks[i][0];
         dr.tgts[i].update(pos, 0.0);
   }
-}
+} 
 
 auto Simulation::getTgtPositionAt(int tgt_tag, double time_s) -> pointmath::Point {
   const double ind_frac = time_s / tgtTimeStep;
   const double ind_double = std::floor(ind_frac);
-  const std::size_t ind = static_cast<std::size_t>(ind_double) % kTargetSteps;
-  const std::size_t ind_next = (ind + 1) % kTargetSteps;
+  const std::size_t ind = static_cast<std::size_t>(ind_double) % targetSteps;
+  const std::size_t ind_next = (ind + 1) % targetSteps;
 
-  sim::TargetTrack& track = tgt_tracks[tgt_tag];
-  pointmath::Point pos = (track.positions[ind_next] - track.positions[ind]) 
+  Point* track = tgtTracks[tgt_tag];
+  pointmath::Point pos = (track[ind_next] - track[ind]) 
                           * (ind_frac - ind_double);
-  pos += track.positions[ind];
+  pos += track[ind];
   return pos;
 }
 
@@ -41,14 +43,14 @@ auto Simulation::getTgtPositionAt(int tgt_tag, double time_s) -> pointmath::Poin
 auto Simulation::moveTargets(double time_now, drone::Drone& dr) -> void {
   const double ind_frac = time_now / tgtTimeStep;
   const double ind_double = std::floor(ind_frac);
-  const std::size_t ind = static_cast<std::size_t>(ind_double) % kTargetSteps;
-  const std::size_t ind_next = (ind + 1) % kTargetSteps;
+  const std::size_t ind = static_cast<std::size_t>(ind_double) % targetSteps;
+  const std::size_t ind_next = (ind + 1) % targetSteps;
 
-  for (auto i =0; i < sim::kNtgts; ++i) { 
-    sim::TargetTrack& track = tgt_tracks[i];
-    pointmath::Point pos = (track.positions[ind_next] - track.positions[ind]) 
+  for (size_t i =0; i < nTgts; ++i) { 
+    Point* track = tgtTracks[i];
+    pointmath::Point pos = (track[ind_next] - track[ind]) 
                           * (ind_frac - ind_double);
-    pos += track.positions[ind];
+    pos += track[ind];
 
     dr.tgts[i].update(pos, time_now); //send new position to drone
   }

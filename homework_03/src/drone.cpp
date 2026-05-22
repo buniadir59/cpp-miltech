@@ -387,7 +387,19 @@ namespace {  //for helpers #####################################################
         }
     }   
 
-    } // drone
+    std::ostream& operator<<(std::ostream& os, const drone::TargetState& tgt) { 
+          return os << tgt.last_known << " V" << tgt.velocity 
+                << "; Drop_route: " << tgt.dropRoute << " total,s: " << tgt.time_total;
+    }
+
+    std::ostream& operator<<(std::ostream& os, const drone::Mission& m) { 
+      if (m.tgtTag < 0) return os << "=>No target";
+      
+      return os << "=>T#" << m.tgtTag << " dt,s: " << m.timeToDestination 
+                << "  TA" << m.destAngle << " Dest" << m.destPoint 
+                << ' ' << m.missionStateToStr(); 
+    }
+} // drone
 
 
 

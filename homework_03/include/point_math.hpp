@@ -1,7 +1,8 @@
 #pragma once
 
 #include <numbers>
-
+#include <iostream>
+#include <cmath>
 /*
   Point
   AngleRad
@@ -39,6 +40,7 @@ namespace pointmath {
             y /= k;
             return *this;
         } 
+
     };
 
     Point operator+(Point a1, const Point& a2);        
@@ -89,7 +91,11 @@ namespace pointmath {
 
     AngleRad operator-(AngleRad a1, const AngleRad& a2);
 
-    
+           
+    auto fixNegativeZero(double val, int precision) -> double; 
+
+    auto rad2Grad(double ang) -> int;
+ 
     Point cossin(double a); // transform angle to point of 1m radius
     
     double getLength(const Point&A_B);
@@ -98,4 +104,7 @@ namespace pointmath {
     // returns length and angle of vector A_B. if angle is negligible, returns 0
     void trxPointToDistAngle(const Point&A_B, double& distance, double& angle);
 
+    std::ostream& operator<<(std::ostream& os, const pointmath::AngleRad& aR);  
+
+    std::ostream& operator<<(std::ostream& os, const pointmath::Point& p);
 }

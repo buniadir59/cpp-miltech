@@ -2,6 +2,8 @@
 #include "point_math.hpp"
 #include "simulation.hpp"
 
+#include "json.hpp"
+#include <cstddef>
 #include <exception>
 #include <fstream>
 #include <iomanip>
@@ -10,22 +12,34 @@
 #include <string>
 #include <cstring>
 
+using json = nlohmann::json;
+using Point = pointmath::Point;
+
 /* **** defines and contants **** */
 
 //#define TEST_MODE
+#define ENABLE_LOG 1 
+#define ENABLE_DEBUG 1
 
-#define OUTPUT_FILE_NAME "simulation.txt"
-#define TARGETS_FILE_NAME "targets.txt"
-#define INPUT_FILE_NAME "input.txt"
-#define DATA_FOLDER "homework_03/data/"
+#if ENABLE_LOG
+  #define LOG(msg) std::cout << "[LOG] " << msg << std::endl;
+#else
+  #define LOG(msg)
+#endif
 
-/* main.cpp - read input files, create objects, run simulation loop, save output */
+#if ENABLE_DEBUG
+  #define DEBUG(msg) std::cout << "[DEBUG] " << msg << std::endl;
+#else
+  #define DEBUG(msg)
+#endif
+
+/* main.cpp - read input files, create objects, run simulation loop, manage output */
 
 namespace { 
-
-  std::string kInputPath = DATA_FOLDER INPUT_FILE_NAME;
-  std::string kTargetsPath = DATA_FOLDER TARGETS_FILE_NAME;
-  std::string kOutputPath = DATA_FOLDER OUTPUT_FILE_NAME;
+  std::string kAmmosPath = "homework_03/data/ammo.json";
+  std::string kInputPath = "homework_03/data/config.json";
+  std::string kTargetsPath = "homework_03/data/targets.json";
+  std::string kOutputPath = "homework_03/data/simulation.txt"; //TODO json";
 
   // ## max number of simulation steps if any target not hit
 #ifdef TEST_MODE
@@ -34,96 +48,10 @@ namespace {
   constexpr int kMaxSteps = 10000; 
 #endif
 
-  // **** print helpers
-    
-    double fixNegativeZero(double val, int precision) {
-        double absV = std::abs(val);
-        return absV < 1 / pow(10, precision) ? 0.0 : val;
-    }
-
-    auto rad2Grad(double ang) {  //utility for better human presentation
-      return static_cast<int>(round(ang/M_PI*180)); 
-    }
-
-    std::ostream& operator<<(std::ostream& os, const pointmath::AngleRad& aR) { 
-        return os << ",°: "<< rad2Grad(aR.value) << " ";
-    }
-
-    std::ostream& operator<<(std::ostream& os, const pointmath::Point& p) { 
-        int prec = &os == &std::cout ? 1 : 2;
-        return os << "( " << fixNegativeZero(p.x, prec) << ", " 
-                         << fixNegativeZero(p.y, prec)  << " ) ";
-    }
-
-    std::ostream& operator<<(std::ostream& os, const ballistics::DropSolution& ds) { 
-      pointmath::Point iP = {ds.intermediate_x, ds.intermediate_y };
-      pointmath::Point fP ={ds.fire_x, ds.fire_y};
-      if (ds.has_intermediate_point) {
-        pointmath::Point iP = {ds.intermediate_x, ds.intermediate_y };
-        return os << " I" << iP << " F" << fP;
-      }
-      return os << " F" << fP;
-    } 
-
-    std::ostream& operator<<(std::ostream& os, const drone::Mission& m) { 
-      if (m.tgtTag < 0) return os << "=>No target";
-      
-      return os << "=>T#" << m.tgtTag << " dt,s: " << m.timeToDestination 
-                << "  TA" << m.destAngle << " Dest" << m.destPoint 
-                << ' ' << m.missionStateToStr(); 
-    }
-    
-    std::ostream& operator<<(std::ostream& os, const drone::TargetState& tgt) { 
-      return os << tgt.last_known << " V" << tgt.velocity 
-                << "; Drop_route: "<< tgt.dropRoute << " total,s: " << tgt.time_total;
-    }
-
-    auto printDrone(const drone::Drone& dr, bool full) {     
-      std::cout << "\tDr:" << dr.coord << " Dir" << dr.dirRad
-                << ' ' << dr.droneStateToStr() << std::endl;
-      if (full) {   //** constant values
-        std::cout << "\tAltitude,m: " << dr.alt
-                  << "\n\tAttack_Speed,m/s: " << dr.attSpeed
-                  << "\n\tAcceleration_path,m: " << dr.accPath
-                  << "\n\tAngular_Speed,rad: " << dr.angSpeed
-                  << "\n\tTurn_Threshold,rad: " << dr.turnThrld
-                  << "\n\tAmmo: " << dr.ammoName //.ammo.title << ", m=" << dr.ammo.mass << ", d=" << dr.ammo.drag << ", l=" << dr.ammo.lift   
-                  << "\n\tHit_Radius,m:#" << dr.hitRad
-                  << " t_acc,s: " << dr.kAccTime << " acc,m: " << dr.kAcc 
-                  << std::endl;
-      }
-    } 
-
-  auto printTargetState(int tgt_tag, const drone::TargetState& tgt) {           
-    std::cout << "\tT#" << tgt_tag << ' ' << tgt << '\n';    
-  }
-
-#ifdef TEST_MODE 
-    auto printAllTargets(const drone::Drone& dr) {
-      for (auto i = 0; i < sim::kNtgts; ++i) {
-        printTargetState(i, dr.tgts[i]);
-      }
-    }
-#endif
-
-  auto printNewMission(const drone::Drone& dr) {
-    std::cout << "\tStarting" << dr.mission << '\n';
-  }
-
-  auto printMission(const drone::Drone& dr) {          
-    std::cout << "\tOn" << dr.mission << '\n';
-  }
-
-  auto printMissionResults(bool result, 
-          double time_of_hit, const pointmath::Point& tgt_pos_at_hit, double hit_dist) {
-    const std::string  result_str = result ? "\tMissed!" : "\tHit!";
-    std::cout << result_str << " at,s: " << time_of_hit << " on spot:" << tgt_pos_at_hit 
-      << " Distance to target at hit,m: " << hit_dist << '\n';
-  }
 
 // **** helpers: read  input data from files write simulation output to file
 
-  auto readTargetsFile(const std::string& file_path, sim::Simulation& s)  { 
+  /*auto readTargetsFile(const std::string& file_path, sim::Simulation& s)  { 
 	  std::ifstream i_file (file_path);
 	  if (!i_file.is_open()) {
 		  throw std::runtime_error("Unable to open " + file_path);
@@ -142,8 +70,9 @@ namespace {
     }
 
     return 0;
-  }
+  }*/
 
+  /*
   auto readInputFile(const std::string& file_path, sim::SimConfig& init_sim,drone::DroneConfig& init_dr) { 
     std::ifstream input_file(file_path);
 
@@ -161,11 +90,182 @@ namespace {
     }
 
     return 0;
+  } */
+
+  /* auto writeToJSONConf(const std::string& file_path, const sim::SimConfig& init_sim, 
+                         const drone::DroneConfig& init_dr) { 
+
+    json jsn;
+    jsn["drone"]["position"]["x"] = init_dr.position.x;
+    jsn["drone"]["position"]["y"] = init_dr.position.y;
+    jsn["drone"]["altitude"] = init_dr.altitude;
+    jsn["drone"]["initialDirection"] = init_dr.initial_direction;
+    jsn["drone"]["attackSpeed"] = init_dr.attack_speed;
+    jsn["drone"]["accelerationPath"] = init_dr.acceleration_path;
+    jsn["drone"]["angularSpeed"] = init_dr.angular_speed;
+    jsn["drone"]["turnThreshold"] = init_dr.turn_threshold;
+     
+    jsn["ammo"] = init_dr.ammo_name;
+    jsn["simulation"]["timeStep"] = init_sim.time_step;
+    jsn["simulation"]["hitRadius"] = init_dr.hit_radius;
+
+    jsn["targetArrayTimeStep"] = init_sim.tgt_time_step;
+
+    std::ofstream of_json(file_path);
+    if (!of_json.is_open()) {
+      throw std::runtime_error("Unable to open output file: " + file_path);
+    }
+     
+    of_json << jsn.dump(2); // 2 spaces => tab
+    return 0;
+  }*/ //DONE
+
+  /*auto writeTargetsJSON(const std::string& file_path, sim::Simulation& s) { 
+    json jsn; 
+    jsn["targetCount"] = kNtgts;
+    jsn["timeSteps"] = sim::kTargetSteps;
+    jsn["targets"] = json::array();
+    
+      for (auto i = 0; i < sim::kNtgts; ++i) { 
+        json target = {
+          {"positions",json::array()}
+        };
+
+        for (size_t j = 0; j < sim::kTargetSteps; ++j) { 
+            target["positions"].push_back(
+              {{"x", s.tgt_tracks[i].positions[j].x},
+                    {"y", s.tgt_tracks[i].positions[j].y}
+              });    
+        }
+
+        jsn["targets"].push_back(target);
+      }
+    
+    std::ofstream of_json(file_path);
+    if (!of_json.is_open()) {
+      throw std::runtime_error("Unable to open output file: " + file_path);
+    }
+     
+    of_json << jsn.dump(2); // 2 spaces => tab
+    return 0;
+  }*/
+
+  auto readTargetsJSON(const std::string& file_path, sim::SimConfig& init_sim) { 
+	  std::ifstream tgts_json (file_path);
+	  if (!tgts_json.is_open()) {
+		  throw std::runtime_error("Unable to open " + file_path);
+	  }
+
+    try {
+      json tgts;
+      tgts_json >> tgts;
+
+      size_t tgtsCount = tgts["targetCount"];
+      size_t timeSteps = tgts["timeSteps"];
+      Point** coords = new Point* [tgtsCount];
+
+      for (size_t i = 0; i < tgtsCount; ++i) {
+          coords[i] = new Point[timeSteps]; 
+
+          for (size_t j = 0; j < timeSteps; ++j){
+            coords[i][j].x = tgts["targets"][i]["positions"][j]["x"];
+            coords[i][j].y = tgts["targets"][i]["positions"][j]["y"];
+          }
+      }
+      
+      init_sim.number_of_targets = tgtsCount; 
+      init_sim.target_steps = timeSteps;   
+      init_sim.target_tracks = coords;
+
+    } catch (const std::exception& error) {
+        std::cerr << "Invalid or incomplete data in " << file_path << '\n';
+        //??? TODO for (size_t i = 0; i < tgtsCount; ++i) { delete[] tgtTracks[i]; }; delete[] tgtTracks; ;
+      return 1;
+    }  
+
+    return 0;
+  } 
+
+  auto readJSONInput(const std::string& file_path, sim::SimConfig& init_sim,drone::DroneConfig& init_dr) { 
+    std::ifstream input_json(file_path);
+
+    if (!input_json.is_open()) {
+      throw std::runtime_error("Unable to open input file: " + file_path);
+    }
+
+    try {
+      json jsn;
+      input_json >> jsn;
+
+      init_dr.position = {jsn["drone"]["position"]["x"], jsn["drone"]["position"]["y"]};
+      init_dr.altitude = jsn["drone"]["altitude"];
+      init_dr.initial_direction = jsn["drone"]["initialDirection"];
+      init_dr.attack_speed = jsn["drone"]["attackSpeed"];
+      init_dr.acceleration_path = jsn["drone"]["accelerationPath"];
+      init_dr.angular_speed = jsn["drone"]["angularSpeed"];
+      init_dr.turn_threshold = jsn["drone"]["turnThreshold"];
+        
+      init_dr.hit_radius = jsn["simulation"]["hitRadius"];
+      init_sim.time_step = jsn["simulation"]["timeStep"];
+
+      init_sim.tgt_time_step = jsn["targetArrayTimeStep"];
+      init_dr.ammo_name = jsn["ammo"];
+  
+      } catch (const std::exception& error) {
+        std::cerr << "Invalid or incomplete data in " << file_path << '\n';
+      return 1;
+    }
+
+    return 0;
   }
 
+//return number of ammos
+auto readAmmosJSON(const std::string& file_path, sim::SimConfig& init_sim)-> int { 
+	  std::ifstream ammos_json (file_path);
+	  if (!ammos_json.is_open()) {
+		  throw std::runtime_error("Unable to open " + file_path);
+	  }
+    sim::Ammo* ammoTable = nullptr;
+
+    try {
+      json ammos;
+      ammos_json >> ammos;
+
+      size_t nAmmos = ammos.size();
+
+      ammoTable = new sim::Ammo[nAmmos];
+
+      for (size_t i = 0; i < nAmmos; ++i)  {
+            std::strncpy(ammoTable[i].name, ammos[i]["name"].get<std::string>().c_str(),31);
+            ammoTable[i].mass = ammos[i]["mass"];
+            ammoTable[i].drag = ammos[i]["drag"];
+            ammoTable[i].lift = ammos[i]["lift"];     
+      }
+      init_sim.number_of_ammos = nAmmos;
+      init_sim.ammo_table = ammoTable;
+      return nAmmos;
+
+    } catch (const std::exception& error) {
+        std::cerr << "Invalid or incomplete data in " << file_path << '\n';
+        //??? TODO for (size_t i = 0; i < tgtsCount; ++i) { delete[] tgtTracks[i]; }; delete[] tgtTracks; ;
+    }  
+
+    if (ammoTable) delete[] ammoTable;
+    return 0; // ammo; //TODO
+  } 
+
   /* ***
-  * Записати дані кроку у вихідн.файл
-  * NB! format differs from requirents in HW doc. The change is agreed 
+  * Записати дані кроку у вихідн. JSON файл
+
+    auto saveStepToJSON(json& out, const drone::Drone& dr) { 
+    json step; //крок х-дрона у-дрона кут-дрона стан-дрона ціль№
+    step["position"] ={{"x", dr.coord.x}, {"y", dr.coord.y}};
+    step["direction"] = dr.dirRad.value;
+    step["state"] = dr.state;
+    step["targetIndex"] = dr.mission.tgtTag;
+     
+    out["steps"].push_back(step);
+  }
   */
   auto saveStep(std::ofstream& of, int stepCurrent, const drone::Drone& dr) { 
       //крок х-дрона у-дрона кут-дрона стан-дрона ціль№
@@ -173,23 +273,12 @@ namespace {
                   << dr.dirRad.value << ' ' << dr.state  << ' ' << dr.mission.tgtTag << '\n';
   }
 
-  auto runSimulationAlarmClock(double& timeCurrent, int& stepCurrent, const sim::Simulation& sim)->bool {
- 
-      ++stepCurrent;  
-      timeCurrent += sim.timeStep;  
-
-      if (stepCurrent >= kMaxSteps) {
-        std::cout << "No hit, simulation time is over!\n";
-        return false;//not hit, simulation is over
-      } 
-
-      return true;
-  }
 
 } // namespace
 
 //################################################################################
 auto main() -> int {
+
   bool cout_to_file = false; // Умова: true для файлу, false для консолі
   std::streambuf* original_buf = nullptr;
 
@@ -202,13 +291,21 @@ auto main() -> int {
 
     sim::SimConfig sim_init{};
     drone::DroneConfig dr_init{};
-    readInputFile(kInputPath, sim_init, dr_init);
+
+    if (!readAmmosJSON(kAmmosPath, sim_init))
+      return 1;
+
+    if (0 != readJSONInput(kInputPath, sim_init, dr_init))
+      return 1;    
+
+    if (0 != readTargetsJSON(kTargetsPath, sim_init))
+      return 1;
 
     sim::Simulation sim{sim_init};
     drone::Drone dr{dr_init};  
        
-    readTargetsFile(kTargetsPath, sim);
-    
+    // readTargetsJSON("homework_03/data/targets.json", sim); // readTargetsFile(kTargetsPath, sim); // writeTargetsJSON("homework_03/data/targets.json", sim);
+
     std::ofstream output_file(kOutputPath);
     if (!output_file.is_open()) {
       throw std::runtime_error("Unable to open output file: " + kOutputPath);
@@ -221,9 +318,16 @@ auto main() -> int {
     std::cout << std::fixed << std::setprecision(1);
     output_file << std::fixed << std::setprecision(2);
  
-    printDrone(dr, true);     
+    DEBUG("\tDr:" << dr.coord << " Dir" << dr.dirRad << ' ' << dr.droneStateToStr());
+    DEBUG("\tAltitude,m: " << dr.alt
+                  << "\n\tAttack_Speed,m/s: " << dr.attSpeed
+                  << "\n\tAcceleration_path,m: " << dr.accPath
+                  << "\n\tAngular_Speed,rad: " << dr.angSpeed
+                  << "\n\tTurn_Threshold,rad: " << dr.turnThrld
+                  << "\n\tAmmo: " << dr.ammoName //.ammo.title << ", m=" << dr.ammo.mass << ", d=" << dr.ammo.drag << ", l=" << dr.ammo.lift   
+                  << "\n\tHit_Radius,m:#" << dr.hitRad
+                  << " t_acc,s: " << dr.kAccTime << " acc,m: " << dr.kAcc);    
 
-    bool isSimOn = true;
     int stepCurrent = 0;      //step, incremented through simulation until maximum
     double timeCurrent = 0.0; //current time 
     sim.initializeTgtPositions(dr);
@@ -232,12 +336,23 @@ auto main() -> int {
 #ifdef TEST_MODE 
     printAllTargets(dr);
 #endif    
-    saveStep(output_file, stepCurrent, dr); //save step 0 data
+ //printAllTargets
+  for (drone::TargetState tgt : dr.tgts) DEBUG("#T " << tgt);
 
-    while (isSimOn) {   
-      
+    
+    saveStep(output_file, stepCurrent, dr); //save step 0 data //TODO
+
+    do {        
       // move simulation time forward and check if we are not over max steps
-      isSimOn = runSimulationAlarmClock(timeCurrent, stepCurrent, sim); 
+      ++stepCurrent;  
+      timeCurrent += sim.timeStep;  
+
+      DEBUG("#" << stepCurrent <<  " (" << timeCurrent  << "s) "); 
+
+      if(stepCurrent > kMaxSteps) { //simulation is over!
+        LOG("No hit, simulation time is over!"); 
+        break; 
+      };
 
       //move targets and inform drone of their current positions, move drone according to its state, direction and speed
       sim.moveTargets(timeCurrent, dr);     
@@ -245,9 +360,9 @@ auto main() -> int {
 
       // if we are on the way to target, continue mission 
       if (dr.isOnMission()) {
-        printTargetState(dr.mission.tgtTag, dr.tgts[dr.mission.tgtTag]);
+        DEBUG("\tT#" << dr.mission.tgtTag << ' ' << dr.tgts[dr.mission.tgtTag]);  
+        DEBUG("\tOn" << dr.mission);
 
-        printMission(dr);
         dr.continueMission(sim.timeStep);   //analyze drone position on the drop path and change its state accordingly
 
         if (dr.mission.state == drone::FIRED) { //check  hit or miss
@@ -255,8 +370,14 @@ auto main() -> int {
             //check if hit expected
             pointmath::Point tgt_pos_at_hit = sim.getTgtPositionAt(dr.mission.tgtTag, time_of_hit);
             double hit_dist = dr.getHitDistance(tgt_pos_at_hit);
-            isSimOn = !dr.isTargetHit(hit_dist);          
-            printMissionResults(isSimOn, time_of_hit, tgt_pos_at_hit, hit_dist);    
+            LOG("\tFired at: " << timeCurrent << "s. Target coordinates at hit " << tgt_pos_at_hit 
+                    << ", distance: " << hit_dist << 'm');
+
+            if (dr.isTargetHit(hit_dist)) {
+              LOG("Hit!");
+            } else {
+              LOG("Missed!"); 
+            };          
         }
       }
       
@@ -265,21 +386,17 @@ auto main() -> int {
         dr.mission.tgtTag = dr.startNewMission(sim.timeStep);
         
         if (dr.isOnMission()) {
-#ifdef TEST_MODE 
-          printAllTargets(dr);
-#endif  
-          printNewMission(dr);
+          //printAllTargets
+          for (drone::TargetState tgt : dr.tgts) DEBUG("#T " << tgt);
+          LOG("\tStarting" << dr.mission);
         }
       }   
 
-	    saveStep(output_file, stepCurrent, dr);
+	    saveStep(output_file, stepCurrent, dr); //TODO
+  
+      DEBUG("\tDr:" << dr.coord << " Dir" << dr.dirRad << ' ' << dr.droneStateToStr());    
 
-      // ############### test output     
-      std::cout << "#" << stepCurrent <<  " (" << timeCurrent  << "s) "; 
-      printDrone(dr, false);  
-      // ###############   
-
-    }; //eo while
+    } while (dr.mission.state != drone::COMPLETED); 
 
     if (cout_to_file) {
       std::cout.rdbuf(original_buf); // Обов'язково повертаємо оригінальний буфер 

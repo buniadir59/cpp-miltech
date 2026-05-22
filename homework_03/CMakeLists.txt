@@ -12,6 +12,7 @@ target_compile_options(hw3_point_math PRIVATE -Wall -Wextra -pedantic)
 add_library(hw3_ballistics src/ballistics.cpp)
 target_include_directories(hw3_ballistics PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_options(hw3_ballistics PRIVATE -Wall -Wextra -pedantic)
+target_link_libraries(hw3_ballistics PUBLIC hw3_point_math)
 
 add_library(hw3_drone src/drone.cpp)
 target_include_directories(hw3_drone PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
