@@ -2,10 +2,8 @@
 
 #include <cmath>
 
-
 /*
   Point
-  AngleRad
 */
 namespace pointmath {
 
@@ -13,41 +11,26 @@ namespace  {
         //angle tolerance  TODO make part of Drone and recalculate ?
         const double kAngleTolerance = std::atan(0.0003); // = ( 0.1 * 3 / 1000 ); 
 }
-    
-    auto normalizeAngle(double value) -> double {
-            while (value > std::numbers::pi ) {
-                value -= 2 * std::numbers::pi ;
-            }
-            while (value <= -std::numbers::pi ) {
-                value += 2 * std::numbers::pi ;
-            }
-            return value;
-    }
-    
-    AngleRad operator-(AngleRad a1, const AngleRad& a2) { 
-            a1 -= a2;
-            return a1;
-    } 
 
-    Point operator+(Point a1, const Point& a2) { 
-            a1 += a2; 
-            return a1; 
-    }
-        
-    Point operator-(Point a1, const Point& a2) { 
-            a1 -= a2;
-            return a1;
-    }
+        Point operator+(Point a1, const Point& a2) { 
+                a1 += a2; 
+                return a1; 
+        }
+                
+        Point operator-(Point a1, const Point& a2) { 
+                a1 -= a2;
+                return a1;
+        }
 
-    Point operator*(Point a1, double k) { 
-            a1 *= k;
-            return a1;
-    }
+        Point operator*(Point a1, double k) { 
+                a1 *= k;
+                return a1;
+        }
 
-    Point operator/(Point a1, double k) {   // check k !=0 before calling!
-            a1 /= k;
-            return a1;
-    } 
+        Point operator/(Point a1, double k) {   // check k !=0 before calling!
+                a1 /= k;
+                return a1;
+        } 
 
         // **** transform angle to point of 1m radius
         Point cossin(double a) { 
@@ -57,7 +40,6 @@ namespace  {
         double getLength(const Point&A_B) { // ***  returns length  of vector A_B
                 return std::hypot(A_B.x, A_B.y); // hypot(A_B);
         }
-
 
         double getAngle(const Point&A_B) { // *** returns angle  of vector A_B
                 double angle = std::atan2(A_B.y, A_B.x); //atan2(A_B); //overloaded for Point
@@ -82,11 +64,7 @@ namespace  {
                 return static_cast<int>(round(ang/M_PI*180)); 
         }
 
-        std::ostream& operator<<(std::ostream& os, const pointmath::AngleRad& aR) { 
-                return os << ",°: "<< rad2Grad(aR.value) << " ";
-        }
-
-        std::ostream& operator<<(std::ostream& os, const pointmath::Point& p) { 
+        std::ostream& operator<<(std::ostream& os, const Point& p) { 
                 int prec = &os == &std::cout ? 1 : 2;
                 return os << "( " << fixNegativeZero(p.x, prec) << ", " 
                                 << fixNegativeZero(p.y, prec)  << " )";

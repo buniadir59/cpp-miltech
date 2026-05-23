@@ -18,9 +18,9 @@ namespace {  //for helpers
 
 
 
-void Simulation::initializeTgtPositions(drone::Drone& dr) {
+auto Simulation::initializeTgtPositions(drone::Drone& dr) -> void {
  
-  for (size_t i =0; i < nTgts; ++i) { 
+  for (size_t i =0; i < nTgts; ++i) {    
         pointmath::Point pos = tgtTracks[i][0];
         dr.tgts[i].update(pos, 0.0);
   }
@@ -38,7 +38,7 @@ auto Simulation::getTgtPositionAt(int tgt_tag, double time_s) -> pointmath::Poin
   pos += track[ind];
   return pos;
 }
-
+//TODO get rig of duplication!!!!
 //obtaine and send current positions of targets to drone
 auto Simulation::moveTargets(double time_now, drone::Drone& dr) -> void {
   const double ind_frac = time_now / tgtTimeStep;

@@ -12,9 +12,8 @@
 
 
 ## Additionally
-   1. ballistics libruary, which was not part of HW2(taken as ready from HW6) reworked to optimize calculations TODO
-   2. Output of debug info to file TODO
-   3.  
+   1.  TODO : ballistics libruary, which was not part of HW2(taken as ready from HW6) reworked to optimize calculations
+ 
 
 
 

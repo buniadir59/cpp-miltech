@@ -2,32 +2,29 @@
 
 #include "point_math.hpp"
 
-#include <string>
+using Point = pointmath::Point;
 
 namespace ballistics {
 
 struct BallisticsInput {
-  double drone_x = 0.0;
-  double drone_y = 0.0;
+  Point drone_pos {};
   double drone_z = 0.0;
 
-  double target_x = 0.0;
-  double target_y = 0.0;
+  Point target_pos{};
 
   double attack_speed = 0.0;
   double acceleration_path = 0.0;
 
-  std::string ammo_name;
+  // ammo 
+  double mass = 0.0;
+  double drag = 0.0;
+  double lift = 0.0;
 };
 
 struct DropSolution {
-  double fire_x = 0.0;
-  double fire_y = 0.0;
-
-  bool has_intermediate_point = false;
-  double intermediate_x = 0.0;
-  double intermediate_y = 0.0;
-
+  Point fire_p{};
+  Point interm_p{};
+  bool has_intermediate_point = false;  
   double fall_time_s = 0.0;
   double horizontal_fall_distance_m = 0.0;
 };

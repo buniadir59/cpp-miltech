@@ -1,15 +1,12 @@
 #pragma once
 
-#include <numbers>
 #include <iostream>
 #include <cmath>
 /*
-  Point
-  AngleRad
+  Point matyh lib
 */
 
 namespace pointmath {
-    auto normalizeAngle(double value) -> double;
     
     struct Point { 
         double x = 0;
@@ -41,6 +38,10 @@ namespace pointmath {
             return *this;
         } 
 
+        bool operator==(const Point& other) const { //TODO eps doesnt make sense - it shall be accuracy ...
+            constexpr double eps = 1e-9;
+            return std::abs(x - other.x) < eps && std::abs(y - other.y) < eps;
+        }
     };
 
     Point operator+(Point a1, const Point& a2);        
@@ -48,49 +49,7 @@ namespace pointmath {
     Point operator*(Point a1, double k);
     Point operator/(Point a1, double k);  // check k !=0 before calling!
     
-    struct AngleRad {
-        double value;
-
-        AngleRad(double d = 0.0) : value(d) {
-            normalize();
-        }
-
-        void normalize() {
-            while (value > std::numbers::pi ) {
-                value -= 2 * std::numbers::pi ;
-            }
-            while (value <= -std::numbers::pi ) {
-                value += 2 * std::numbers::pi ;
-            }
-        }
-
-        AngleRad& operator+=(double d) {
-            value += d;
-            normalize();
-            return *this;
-        }
-
-        AngleRad& operator-=(double d) {
-            value -= d;
-            normalize();
-            return *this;
-        }
-
-        AngleRad& operator+=(const AngleRad& d) {
-            value += d.value;
-            normalize();
-            return *this;
-        }
-
-        AngleRad& operator-=(const AngleRad& d) {
-            value -= d.value;
-            normalize();
-            return *this;
-        }
-    };
-
-    AngleRad operator-(AngleRad a1, const AngleRad& a2);
-
+    
            
     auto fixNegativeZero(double val, int precision) -> double; 
 
@@ -104,7 +63,5 @@ namespace pointmath {
     // returns length and angle of vector A_B. if angle is negligible, returns 0
     void trxPointToDistAngle(const Point&A_B, double& distance, double& angle);
 
-    std::ostream& operator<<(std::ostream& os, const pointmath::AngleRad& aR);  
-
-    std::ostream& operator<<(std::ostream& os, const pointmath::Point& p);
+    std::ostream& operator<<(std::ostream& os, const Point& p);
 }
