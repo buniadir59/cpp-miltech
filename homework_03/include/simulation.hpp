@@ -5,8 +5,8 @@
 #include "ammo.hpp"
 #include <cstddef>
 
-/* 
-simulation  — SimConfig, TargetTrack, update target samples, 
+/*
+simulation  — SimConfig, TargetTrack, update target samples,
 main simulation mechanics
 
 Simulation::
@@ -19,59 +19,60 @@ Simulation::
 using size_t = std::size_t;
 using Point = pointmath::Point;
 
-namespace sim {   
-    
-    struct SimConfig {
-        double time_step;        // simulation step (sec) 
-        double tgt_time_step;    // target simulation step (sec)
-        double hit_rad;          //Радіус ураження — допустима похибка попадання (м)
-    };
+namespace sim {
 
- 
-    // **** simulation engine data
-    struct Simulation {
-        size_t nTgts;          // number of targets 
-        size_t nTargetSteps;   // length of simulation cycle for target coordinates
-        size_t nAmmos;
-        
-        double timeStep;       // simulation step (sec) 
-        double tgtTimeStep;    // target simulation step (sec)  
-        const double kHitRad;         //Радіус ураження — допустима похибка попадання (м)  
+struct SimConfig {
+  double time_step;      // simulation step (sec)
+  double tgt_time_step;  // target simulation step (sec)
+  double hit_rad;        // Радіус ураження — допустима похибка попадання (м)
+};
 
-        Point** tgtTracks = nullptr;          
-        ammo::Ammo* ammoTable{nullptr};
-        drone::SimStep simStep{};
+// **** simulation engine data
+struct Simulation {
+  size_t nTgts = 0;         // number of targets
+  size_t nTargetSteps = 0;  // length of simulation cycle for target coordinates
+  size_t nAmmos = 0;
 
-        explicit Simulation(const SimConfig& config)
-        :   timeStep{config.time_step},
-            tgtTimeStep{config.tgt_time_step},
-            kHitRad(config.hit_rad)    
-        {}   
-        
-        // ## receive "real" (interpolated) positions each timestep //TODO optimize ??
-        auto moveTargets(double time_now, drone::Drone& dr) -> void; 
-        
-        auto initializeTgtPositions(drone::Drone& dr) -> void;
-     
-        // ## get "real" position of target tgt_tag at any time_s 
-        auto getTgtPositionAt(int tgt_tag, double time_s) -> Point;
+  double timeStep;       // simulation step (sec)
+  double tgtTimeStep;    // target simulation step (sec)
+  const double kHitRad;  // Радіус ураження — допустима похибка попадання (м)
 
-        auto freeMemory() -> void {
-            if (tgtTracks != nullptr) {
-                for (size_t i = 0; i < nTgts; ++i) {
-                    delete[] tgtTracks[i];
-                    tgtTracks[i] = nullptr;
-                }
+  Point** tgtTracks = nullptr;
+  ammo::Ammo* ammoTable{nullptr};
+  drone::SimStep simStep{};
 
-                delete[] tgtTracks;
-                tgtTracks = nullptr;              
-            }
+  explicit Simulation(const SimConfig& config)
+    : timeStep{config.time_step}
+    , tgtTimeStep{config.tgt_time_step}
+    , kHitRad(config.hit_rad)
+  {
+  }
 
-            if (ammoTable != nullptr) {
-                delete[] ammoTable;
-                ammoTable = nullptr;
-            }
-        }
-    };
+  // ## receive "real" (interpolated) positions each timestep //TODO optimize ??
+  auto moveTargets(double time_now, drone::Drone& dr) -> void;
 
-} //eo namespace sim 
+  auto initializeTgtPositions(drone::Drone& dr) -> void;
+
+  // ## get "real" position of target tgt_tag at any time_s
+  auto getTgtPositionAt(size_t tgt_tag, double time_s) -> Point;
+
+  auto freeMemory() -> void
+  {
+    if (tgtTracks != nullptr) {
+      for (size_t i = 0; i < nTgts; ++i) {
+        delete[] tgtTracks[i];
+        tgtTracks[i] = nullptr;
+      }
+
+      delete[] tgtTracks;
+      tgtTracks = nullptr;
+    }
+
+    if (ammoTable != nullptr) {
+      delete[] ammoTable;
+      ammoTable = nullptr;
+    }
+  }
+};
+
+}  // namespace sim
