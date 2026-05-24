@@ -38,7 +38,7 @@ namespace pointmath {
             return *this;
         } 
 
-        bool operator==(const Point& other) const { //TODO eps doesnt make sense - it shall be accuracy ...
+        bool operator==(const Point& other) const { //TODO: eps doesnt make sense - it shall be accuracy ...
             constexpr double eps = 1e-9;
             return std::abs(x - other.x) < eps && std::abs(y - other.y) < eps;
         }

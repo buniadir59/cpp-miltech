@@ -7,12 +7,48 @@
 #include <stdexcept>
 
 namespace ballistics {
+
 namespace {
 
 constexpr double kGravity = 9.81;
 constexpr double kEpsilon = std::numeric_limits<double>::epsilon();
 
+
+double fall_time_s = 0.0, horizontal_fall_distance_m = 0.0;;
+
+struct {
+  double drone_z = 0.0;
+  double attack_speed = 0.0;
+  double acceleration_path = 0.0;
+  // ammo 
+  double mass = 0.0;
+  double drag = 0.0;
+  double lift = 0.0;
+} FFInputLastUsed;
+
+auto hasFFDataReady(const BallisticsInput& input) {
+   return input.drone_z == FFInputLastUsed.drone_z
+              && input.attack_speed == FFInputLastUsed.attack_speed
+              && input.acceleration_path == FFInputLastUsed.acceleration_path
+              && input.mass == FFInputLastUsed.mass
+              && input.drag == FFInputLastUsed.drag
+              && input.drag == FFInputLastUsed.drag
+              && input.lift == FFInputLastUsed.lift;
+}
+
+auto saveFFInput(const BallisticsInput& input) {
+  FFInputLastUsed.drone_z = input.drone_z;
+  FFInputLastUsed.attack_speed = input.attack_speed;
+  FFInputLastUsed.acceleration_path = input.acceleration_path;
+  FFInputLastUsed.mass = input.mass;
+  FFInputLastUsed.drag = input.drag;
+  FFInputLastUsed.drag = input.drag;
+  FFInputLastUsed.lift = input.lift; 
+}
+
+
 auto calculate_free_fall_time_s(const BallisticsInput& input) -> double {
+
   const double drag_lift_speed = input.drag * input.lift * input.attack_speed;
   const double gravity_mass = kGravity * input.mass;
   const double a = input.drag * (gravity_mass - 2.0 * input.drag * drag_lift_speed);
@@ -41,13 +77,12 @@ auto calculate_free_fall_time_s(const BallisticsInput& input) -> double {
   }
 
   const double res = 2.0 * std::cos((std::acos(acos_argument) + std::numbers::pi * 4.0) / 3.0) / sqrt_value - b_div_3a;
-  ;
 
   return res;
 }
 
-auto calculate_horizontal_fall_distance_m(double fall_time_s, const BallisticsInput& input) -> double
-{
+auto calculate_horizontal_fall_distance_m(double fall_time_s, const BallisticsInput& input) -> double {
+
   if (std::abs(input.mass) < kEpsilon) {
     throw std::domain_error("Ammo mass must be non-zero");
   }
@@ -104,17 +139,17 @@ void validate_input(const BallisticsInput& input)
 
 }  // namespace
 
-auto compute_drop_solution(const BallisticsInput& input) -> DropSolution
-{
+auto compute_drop_solution(const BallisticsInput& input) -> DropSolution {
   validate_input(input);
 
-  const double fall_time_s = calculate_free_fall_time_s(input);
-
-  const double horizontal_fall_distance_m = calculate_horizontal_fall_distance_m(fall_time_s, input);
-
-  if (horizontal_fall_distance_m < 0.0) {
-    throw std::domain_error("Invalid horizontal fall distance");
-  }
+  if (!hasFFDataReady(input)) {
+    fall_time_s = calculate_free_fall_time_s(input);
+    horizontal_fall_distance_m = calculate_horizontal_fall_distance_m(fall_time_s, input);
+    if (horizontal_fall_distance_m < 0.0) {
+      throw std::domain_error("Invalid horizontal fall distance");
+    }
+    saveFFInput(input);
+  } 
 
   const double minimum_distance_m = horizontal_fall_distance_m + input.acceleration_path;
 
@@ -126,7 +161,7 @@ auto compute_drop_solution(const BallisticsInput& input) -> DropSolution
   solution.fall_time_s = fall_time_s;
   solution.horizontal_fall_distance_m = horizontal_fall_distance_m;
 
-  if (distance_to_target_m < kEpsilon) { //TODO solution is not optimal here, better to go in the direction opposite to target
+  if (distance_to_target_m < kEpsilon) { //TODO: solution is not optimal here, better to go in the direction opposite to target
     solution.has_intermediate_point = true;
     solution.interm_p = {input.target_pos.x + minimum_distance_m, input.target_pos.y};
    

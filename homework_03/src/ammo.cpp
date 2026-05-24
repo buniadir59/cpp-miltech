@@ -3,7 +3,7 @@
 #include <cstring>
 
 namespace ammo {
-
+/*
 auto findAmmoByName(const ammo::Ammo* ammo_table, std::size_t ammo_count,
                     const char ammo_name[]) -> const Ammo* {
     for (std::size_t i = 0; i < ammo_count; ++i) {
@@ -13,8 +13,8 @@ auto findAmmoByName(const ammo::Ammo* ammo_table, std::size_t ammo_count,
     }
 
     return nullptr;
-}
-/*
+}*/
+
 auto findAmmoByName(const Ammo ammo_table[], std::size_t ammo_count,
                     const char ammo_name[]) -> const Ammo* {
     for (std::size_t i = 0; i < ammo_count; ++i) {
@@ -24,5 +24,5 @@ auto findAmmoByName(const Ammo ammo_table[], std::size_t ammo_count,
     }
 
     return nullptr;
-}*/
+}
 }  // namespace ammo

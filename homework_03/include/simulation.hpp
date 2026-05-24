@@ -6,9 +6,13 @@
 #include <cstddef>
 
 /* 
-simulation  — SimConfig, TargetTrack, update target samples, main simulation mechanics
+simulation  — SimConfig, TargetTrack, update target samples, 
+main simulation mechanics
 
 Simulation::
+    owns:
+        ammo::Ammo* ammoTable
+        Point** targetTracks
     updateTargetsPosition
 */
 
@@ -20,39 +24,36 @@ namespace sim {
     struct SimConfig {
         double time_step;        // simulation step (sec) 
         double tgt_time_step;    // target simulation step (sec)
-        size_t number_of_targets = 0;
-        size_t target_steps = 0;
-        size_t number_of_ammos = 0;
-        ammo::Ammo* ammo_table{nullptr};
-        Point** target_tracks = nullptr;
+        double hit_rad;          //Радіус ураження — допустима похибка попадання (м)
     };
 
  
     // **** simulation engine data
     struct Simulation {
         size_t nTgts;          // number of targets 
-        size_t targetSteps;    // length of simulation cycle for target coordinates
-     //   size_t nAmmos;
-        double timeStep;            // simulation step (sec) 
-        double tgtTimeStep;         // target simulation step (sec)               
-        Point** tgtTracks;
-     //   ammo::Ammo* ammoTable{nullptr};
+        size_t nTargetSteps;   // length of simulation cycle for target coordinates
+        size_t nAmmos;
+        
+        double timeStep;       // simulation step (sec) 
+        double tgtTimeStep;    // target simulation step (sec)  
+        const double kHitRad;         //Радіус ураження — допустима похибка попадання (м)  
+
+        Point** tgtTracks = nullptr;          
+        ammo::Ammo* ammoTable{nullptr};
         drone::SimStep simStep{};
 
         explicit Simulation(const SimConfig& config)
-        :   nTgts{config.number_of_targets},
-            targetSteps{config.target_steps},
-        //    nAmmos(config.number_of_ammos),
-            timeStep{config.time_step},
-            tgtTimeStep{config.tgt_time_step},          
-            tgtTracks{config.target_tracks}
-         //   ammoTable(config.ammo_table)         
+        :   timeStep{config.time_step},
+            tgtTimeStep{config.tgt_time_step},
+            kHitRad(config.hit_rad)    
         {}   
-
-        auto moveTargets(double time_now, drone::Drone& dr) -> void; //receive "real" (interpolated) positions 
-
+        
+        // ## receive "real" (interpolated) positions each timestep //TODO optimize ??
+        auto moveTargets(double time_now, drone::Drone& dr) -> void; 
+        
         auto initializeTgtPositions(drone::Drone& dr) -> void;
      
+        // ## get "real" position of target tgt_tag at any time_s 
         auto getTgtPositionAt(int tgt_tag, double time_s) -> Point;
 
         auto freeMemory() -> void {
@@ -63,7 +64,12 @@ namespace sim {
                 }
 
                 delete[] tgtTracks;
-                tgtTracks = nullptr;
+                tgtTracks = nullptr;              
+            }
+
+            if (ammoTable != nullptr) {
+                delete[] ammoTable;
+                ammoTable = nullptr;
             }
         }
     };

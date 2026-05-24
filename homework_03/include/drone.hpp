@@ -14,37 +14,23 @@ using AngleRad = anglemath::AngleRad;
 
 /* **** drone.hpp / drone.cpp 
   TargetState::
-    predict target position for use in lead targeting 
+    predicts target position for use in lead targeting 
 
   Mission::
-    steer drone along drop path
+    steers drone along drop path
 
   DroneConfig:: for initial data from input file 
   Drone::
-    update drone params 
-    choose target 
+    owns TargetState* tgts
+    borrows const ammo::Ammo* ammo
+    updates drone params 
+    chooses target 
   */
 
 
 namespace drone {
 
   constexpr double eps = std::numeric_limits<double>::epsilon(); 
-    
-    
-    struct DroneConfig {
-        Point position{};
-        double altitude = 0.0;
-        double initial_direction{};
-        double attack_speed = 0.0;
-        double acceleration_path = 0.0;
-        char ammo_name[32] = {};
-        double hit_radius = 0.0;
-        double angular_speed = 0.0;
-        double turn_threshold = 0.0;
-        size_t number_of_targets = 0;
-        size_t ammo_count = 0;
-        const ammo::Ammo* ammo_table = nullptr;
-    };
 
     struct TargetState { //current information on target available to drone
         bool has_previous = false;
@@ -78,12 +64,10 @@ namespace drone {
           input.target_pos = getLeadPosition(delta_t);//@calc BS
           dropRoute = ballistics::compute_drop_solution(input);
         };     
-    }; //eo TargetState
+    }; //eo TargetState #########################
 
     std::ostream& operator<<(std::ostream& os, const drone::TargetState& tgt);
     
-    enum DroneState { STOPPED=0, ACCELERATING, DECELERATING, TURNING, MOVING };
-
     enum MissionState {NONE, TO_INTERIMP, TO_FIREP, FIRED, FAILED, COMPLETED};
 
     struct Mission {
@@ -97,8 +81,8 @@ namespace drone {
       AngleRad destAngle{0.0}; //direction to destination, calculated at start of mission
       Point destPoint{0, 0};
 
-      Point dropPoint{0,0}; //=dest point when TO_FIREP, initially target from drop_route //TODO
-      Point aimPoint{0,0}; //has sense when moving //TODO
+      Point dropPoint{0,0}; //=dest point when TO_FIREP, initially target from drop_route
+      Point aimPoint{0,0}; //has sense when moving 
 
       auto missionStateToStr() const -> const char* {
         switch (state) {
@@ -111,7 +95,7 @@ namespace drone {
             default: return "UNKNOWN_STATE";
         }
       }
-    };
+    }; //eo Mission ############################
     
     std::ostream& operator<<(std::ostream& os, const drone::Mission& m);
 
@@ -124,17 +108,36 @@ namespace drone {
         Point aimPoint;     	// куди впаде бомба (якщо скинути зараз)
         Point predictedTarget;  // прогнозована позиція цілі
     };
+    
+    struct DroneConfig {
+        Point position{};
+        double altitude = 0.0;
+        double initial_direction{};
+        double attack_speed = 0.0;
+        double acceleration_path = 0.0;
+
+        char ammo_name[32] = {};
+
+        double angular_speed = 0.0;
+        double turn_threshold = 0.0;
+
+        size_t number_of_targets = 0;
+      //  size_t ammo_count = 0;
+        const ammo::Ammo* ammo = nullptr;
+    };
+
+    enum DroneState { STOPPED=0, ACCELERATING, DECELERATING, TURNING, MOVING };
 
     struct Drone {
         // constant - obtained from input data: 
         double alt;             //altitude
         double accPath;         //acceler path
         double attSpeed;        //attack speed
-        double hitRad;          //Радіус ураження — допустима похибка попадання (м)
+        
         double angSpeed;        //Кутова швидкість повороту (рад/с)
         double turnThrld;       //Пороговий кут для зупинки (рад)
         size_t nTargets;
-        const ammo::Ammo* ammo = nullptr; //char ammoName[32] = {};   //Ammo ammo;            
+        const ammo::Ammo* ammo = nullptr;            
 
         // constant - calculated once and saved for future use
         double kAcceleration;              //calculated from acceler time and attack speed
@@ -157,21 +160,20 @@ namespace drone {
         :   alt{config.altitude},
             accPath{config.acceleration_path},
             attSpeed{config.attack_speed},
-            hitRad{config.hit_radius},
             angSpeed{config.angular_speed},         
             turnThrld{config.turn_threshold},
             nTargets(config.number_of_targets),
-       //     ammoName(config.ammo_name),
+            ammo(config.ammo),
             coord{config.position},
             dirRad{config.initial_direction}, 
             tgts{new TargetState[config.number_of_targets]}   
         {
             setDroneDirection(config.initial_direction); 
             kAcceleration = attSpeed * attSpeed / (2 * accPath);
-            ammo = ammo::findAmmoByName(config.ammo_table, config.ammo_count, config.ammo_name);
+            
         } 
 
-        void moveDrone(double dt);
+  
         void setDroneDirection (double aR){ dirRad = aR; dirXY = pointmath::cossin(dirRad.value); };
 
         auto getTimeToGainAttackSpeed() const -> double { 
@@ -179,7 +181,7 @@ namespace drone {
         }
         
         auto getAmmoFlyDist() const -> double;
-        auto getAmmoFlyTime() const -> double;
+        auto getAmmoFlyTime() const -> double; 
 
         auto getMinTimeToTurn(double abs_delta_angle, double time_on_move, double time_step);
         auto getTurnTime(AngleRad delta) const -> double;
@@ -187,20 +189,26 @@ namespace drone {
        
         auto getTimeToFlyToFP(double dist_to_fp) const -> double;
         auto calculateTimeForDropRoute(Point start, TargetState& tgt) -> double; 
+        auto recalculateFPOntheRoute(double ammo_f_dist, double time_step) -> int;
 
         auto getBestTarget() -> int;
+
+        // ## public funcs
+        void moveDrone(double dt);
+        auto startNewMission(double time_step) -> int;    
         auto isOnMission() const -> bool { return mission.tgtTag >= 0; }
         auto breakMission()-> MissionState  { 
           mission.state = NONE; mission.tgtTag = -1; 
           state = speed > 0.0 ? DECELERATING : STOPPED;
           return NONE;
         } 
+        auto completeMission() -> void { mission.state = COMPLETED;};
+        auto isMissionCompleted() -> bool { return mission.state == COMPLETED; }
+        auto continueMission(double time_step) -> bool; //=> true if fired
+        
+        auto getHitCoordAndAmmoFlyTime(Point& hit_pos) -> double;
+        
 
-        auto startNewMission(double time_step) -> int;       
-        auto continueMission(double time_step) -> MissionState;
-        auto recalculateFPOntheRoute(double ammo_f_dist, double time_step) -> int;
-        auto getHitDistance(Point tgt_pos_at_hit) -> double;       
-        auto isTargetHit(double hit_dist) const -> bool { return hit_dist <= hitRad; }
 
         auto droneStateToStr() const -> const char*  {
           switch (state) {
@@ -212,22 +220,13 @@ namespace drone {
               default: return "UNKNOWN_STATE";
           }
         }
-      
-        auto updateSimStep(SimStep& step) const -> void  {
-          step.pos = coord;          	// позиція дрона
-          step.direction = static_cast<float>(dirRad.value);    	// напрямок (рад)
-          step.state = state;        	// стан автомата (0-4)
-          step.targetIdx = mission.tgtTag;    	// індекс поточної цілі
-          if(state == MOVING) step.aimPoint = coord + dirXY * getAmmoFlyDist(); // куди впаде бомба (якщо скинути зараз)
-          if (mission.tgtTag >=0 ) {
-            step.dropPoint = mission.dropPoint;  	// точка скиду (куди летить дрон)
-            step.predictedTarget = mission.tgt_lead_pos;  // прогнозована позиція цілі          
-          }
-        }
+
+        auto updateSimStep(SimStep& step) const -> void;
 
         auto freeMemory() -> void {
-          delete[] tgts; tgts = nullptr; 
-          delete[] ammo; ammo = nullptr;
+          if (tgts != nullptr) {
+            delete[] tgts; tgts = nullptr; 
+          }        
         }
       };
     

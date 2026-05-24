@@ -8,7 +8,7 @@
 namespace pointmath {
 
 namespace  {
-        //angle tolerance  TODO make part of Drone and recalculate ?
+        //angle tolerance  TODO: make part of Drone and recalculate ?
         const double kAngleTolerance = std::atan(0.0003); // = ( 0.1 * 3 / 1000 ); 
 }
 
@@ -27,7 +27,7 @@ namespace  {
                 return a1;
         }
 
-        Point operator/(Point a1, double k) {   // check k !=0 before calling!
+        Point operator/(Point a1, double k) {   // must to check k !=0 before calling!
                 a1 /= k;
                 return a1;
         } 

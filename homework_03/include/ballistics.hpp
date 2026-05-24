@@ -8,10 +8,9 @@ namespace ballistics {
 
 struct BallisticsInput {
   Point drone_pos {};
-  double drone_z = 0.0;
-
   Point target_pos{};
-
+  
+  double drone_z = 0.0;
   double attack_speed = 0.0;
   double acceleration_path = 0.0;
 
