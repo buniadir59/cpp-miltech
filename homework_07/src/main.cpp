@@ -1,9 +1,9 @@
 #include "drone.hpp"
-#include "point_math.hpp"
-#include "ammo.hpp"
+#include "math/point_math.hpp"
+#include "dto/Ammo.hpp"
 #include "simulation.hpp"
 
-#include "json.hpp"
+#include <nlohmann/json.hpp>
 
 #include <cstddef>
 #include <exception>
@@ -135,7 +135,7 @@ auto readAmmosJSON(const char* file_path, sim::Simulation& sim) -> int
 
     size_t nAmmos = ammos.size();
 
-    sim.ammoTable = new ammo::Ammo[nAmmos];
+    sim.ammoTable = new dto::Ammo[nAmmos];
     sim.nAmmos = nAmmos;
 
     for (size_t i = 0; i < nAmmos; ++i) {

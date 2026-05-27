@@ -1,6 +1,6 @@
 #pragma once
 
-#include "interfaces/IConfigLoader.h"
+#include "interfaces/IConfigLoader.hpp"
 
 
 class FileConfigLoader: IConfigLoader {

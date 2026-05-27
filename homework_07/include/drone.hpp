@@ -1,9 +1,9 @@
 #pragma once
 
 #include "ballistics.hpp"
-#include "point_math.hpp"
-#include "anglemath.hpp"
-#include "ammo.hpp"
+#include "math/point_math.hpp"
+#include "math/angle_math.hpp"
+#include "dto/Ammo.hpp"
 
 #include <limits>
 #include <cstring>
@@ -133,8 +133,7 @@ struct DroneConfig {
   double turn_threshold = 0.0;
 
   size_t number_of_targets = 0;
-  //  size_t ammo_count = 0;
-  const ammo::Ammo* ammo = nullptr;
+  const dto::Ammo* ammo = nullptr;
 };
 
 enum DroneState { STOPPED = 0, ACCELERATING, DECELERATING, TURNING, MOVING };
@@ -148,7 +147,7 @@ struct Drone {
   double angSpeed;   // Кутова швидкість повороту (рад/с)
   double turnThrld;  // Пороговий кут для зупинки (рад)
   size_t nTargets;
-  const ammo::Ammo* ammo = nullptr;
+  const dto::Ammo* ammo = nullptr;
 
   // constant - calculated once and saved for future use
   double kAcceleration;      // calculated from acceler time and attack speed

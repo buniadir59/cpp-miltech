@@ -1,6 +1,6 @@
 #include "simulation.hpp"
 #include "drone.hpp"
-#include "point_math.hpp"
+#include "math/point_math.hpp"
 
 #include <cmath>
 #include <cstddef>

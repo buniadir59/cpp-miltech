@@ -1,7 +1,7 @@
 #include "drone.hpp"
-#include "point_math.hpp"
-#include "anglemath.hpp"
-#include "ammo.hpp"
+#include "math/point_math.hpp"
+#include "math/angle_math.hpp"
+#include "dto/Ammo.hpp"
 #include "ballistics.hpp"
 
 #include <algorithm>

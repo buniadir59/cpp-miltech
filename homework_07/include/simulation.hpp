@@ -1,8 +1,8 @@
 #pragma once
 
-#include "point_math.hpp"
+#include "math/point_math.hpp"
 #include "drone.hpp"
-#include "ammo.hpp"
+#include "dto/Ammo.hpp"
 #include <cstddef>
 
 /*
@@ -38,7 +38,7 @@ struct Simulation {
   const double kHitRad;  // Радіус ураження — допустима похибка попадання (м)
 
   Point** tgtTracks = nullptr;
-  ammo::Ammo* ammoTable{nullptr};
+  dto::Ammo* ammoTable{nullptr};
   drone::SimStep simStep{};
 
   explicit Simulation(const SimConfig& config)

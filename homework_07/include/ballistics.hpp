@@ -1,6 +1,6 @@
 #pragma once
 
-#include "point_math.hpp"
+#include "math/point_math.hpp"
 
 using Point = pointmath::Point;
 

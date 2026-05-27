@@ -1,5 +1,5 @@
 #include "ballistics.hpp"
-#include "point_math.hpp"
+#include "math/point_math.hpp"
 #include <stdexcept>
 #include <cmath>
 #include <limits>
