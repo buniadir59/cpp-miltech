@@ -15,6 +15,6 @@ struct Ammo {
 
 namespace ammo {
 
-auto findAmmoByName(const dto::Ammo ammo_table[], std::size_t ammo_count, const char ammo_name[]) -> const dto::Ammo*;
+auto findAmmoByName(const dto::Ammo ammo_table[], std::size_t ammo_count, const char ammo_name[]) -> const dto::Ammo&;
 
 }// namespace ammo

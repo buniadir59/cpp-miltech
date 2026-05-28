@@ -2,7 +2,7 @@
 #pragma once
 
 #include <string>
-#include <vector>
+//#include <vector>
 
 #include "dto/Ammo.hpp"
 #include "dto/MissionConfig.hpp"
@@ -19,11 +19,11 @@ class FileConfigLoader : public IConfigLoader {
  private:
   auto loadConfig(const std::string& config_path) -> bool;
   auto loadAmmoTable(const std::string& ammo_path) -> bool;
-  auto findAmmoByName(const std::string& ammo_name) const -> const dto::Ammo*;
+ // auto findAmmoByName(const std::string& ammo_name) const -> const dto::Ammo*;
 
   dto::MissionConfig config_{};
   dto::Ammo selected_ammo_{};
-  std::vector<dto::Ammo> ammo_table_{};
+//  std::vector<dto::Ammo> ammo_table_{};
 };
 
 

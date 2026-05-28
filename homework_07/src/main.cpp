@@ -201,12 +201,14 @@ auto main() -> int
     }
 
     dr_init.number_of_targets = sim.nTgts;
-    dr_init.ammo = ammo::findAmmoByName(sim.ammoTable, sim.nAmmos, dr_init.ammo_name);
-    if (dr_init.ammo == nullptr) {
-      std::cerr << "Unknown ammo in config.json:" << dr_init.ammo_name << '\n';
-      sim.freeMemory();
-      return 1;
-    };
+    dr_init.number_of_ammos = sim.nAmmos;
+    dr_init.ammoTable = sim.ammoTable;
+   // dr_init.ammo = ammo::findAmmoByName(sim.ammoTable, sim.nAmmos, dr_init.ammo_name);
+    // if (dr_init.ammo == nullptr) {
+    //   std::cerr << "Unknown ammo in config.json:" << dr_init.ammo_name << '\n';
+    //   sim.freeMemory();
+    //   return 1;
+    // };
 
     drone::Drone dr{dr_init};
 

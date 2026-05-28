@@ -1,9 +1,10 @@
 #pragma once
 
-#include "ballistics.hpp"
+//#include "ballistics.hpp"
 #include "math/point_math.hpp"
 #include "math/angle_math.hpp"
 #include "dto/Ammo.hpp"
+#include "dto/DropSolution.hpp"
 
 #include <limits>
 #include <cstring>
@@ -40,7 +41,7 @@ struct TargetState {  // current information on target available to drone
   double time_accuracy = 0.0;
   double time_total = 0.0;
   double time_to_interim = 0.0;  // time to reach interim point
-  ballistics::DropSolution dropRoute{};
+  dto::DropSolution dropRoute{};
 
   auto getSpeed() const -> double { return pointmath::getLength(velocity); }
 
@@ -62,11 +63,11 @@ struct TargetState {  // current information on target available to drone
   // return projected position for lead targeting
   Point getLeadPosition(double delta_t) const { return last_known + velocity * (delta_t); };
 
-  auto calculateBallisticSolutionAt(double delta_t, ballistics::BallisticsInput& input) -> void
+  /* TODO auto calculateBallisticSolutionAt(double delta_t, ballistics::BallisticsInput& input) -> void
   {
     input.target_pos = getLeadPosition(delta_t);  //@calc BS
     dropRoute = ballistics::compute_drop_solution(input);
-  };
+  };*/
 };  // eo TargetState #########################
 
 std::ostream& operator<<(std::ostream& os, const drone::TargetState& tgt);
@@ -133,7 +134,9 @@ struct DroneConfig {
   double turn_threshold = 0.0;
 
   size_t number_of_targets = 0;
-  const dto::Ammo* ammo = nullptr;
+  //const dto::Ammo& ammo; //const dto::Ammo* ammo = nullptr;
+  size_t number_of_ammos = 0;
+  dto::Ammo* ammoTable{nullptr};
 };
 
 enum DroneState { STOPPED = 0, ACCELERATING, DECELERATING, TURNING, MOVING };
@@ -147,7 +150,7 @@ struct Drone {
   double angSpeed;   // Кутова швидкість повороту (рад/с)
   double turnThrld;  // Пороговий кут для зупинки (рад)
   size_t nTargets;
-  const dto::Ammo* ammo = nullptr;
+  const dto::Ammo& ammo;//const dto::Ammo* ammo = nullptr;
 
   // constant - calculated once and saved for future use
   double kAcceleration;      // calculated from acceler time and attack speed
@@ -173,7 +176,7 @@ struct Drone {
     , angSpeed{config.angular_speed}
     , turnThrld{config.turn_threshold}
     , nTargets(config.number_of_targets)
-    , ammo(config.ammo)
+    , ammo(ammo::findAmmoByName(config.ammoTable, config.number_of_ammos, config.ammo_name))
     , coord{config.position}
     , dirRad{config.initial_direction}
     , tgts{new TargetState[config.number_of_targets]}

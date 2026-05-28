@@ -1,8 +1,12 @@
 #include "drone.hpp"
 #include "math/point_math.hpp"
 #include "math/angle_math.hpp"
-#include "dto/Ammo.hpp"
-#include "ballistics.hpp"
+//#include "dto/Ammo.hpp"
+
+#include "dto/DropSolution.hpp"
+#include "dto/BallisticsInput.hpp"
+#include "solvers/AnalyticalSolver.hpp"
+//#include "ballistics.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -29,7 +33,9 @@ namespace drone {
 
 namespace {  // for helpers #####################################
 
-Point getDestination(const ballistics::DropSolution& drop_route)
+  AnalyticalSolver solver_tmp; //TODO
+
+Point getDestination(const dto::DropSolution& drop_route)
 {
   if (drop_route.has_intermediate_point) {
     return drop_route.interm_p;
@@ -39,7 +45,7 @@ Point getDestination(const ballistics::DropSolution& drop_route)
   }
 }
 
-Point getFP(const ballistics::DropSolution& drop_route)
+Point getFP(const dto::DropSolution& drop_route)
 {
   return drop_route.fire_p;
 }
@@ -168,7 +174,7 @@ auto Drone::recalculateFPOntheRoute(double ammo_f_dist, double time_step) -> int
 // returns calculated total time value
 auto Drone::calculateTimeForDropRoute(Point start, TargetState& tgt) -> double
 {
-  ballistics::DropSolution& drop_route = tgt.dropRoute;
+  dto::DropSolution& drop_route = tgt.dropRoute;
   Point& pos_fire = tgt.dropRoute.fire_p;
   double total_time{};
   double time_to_interim{};
@@ -209,12 +215,17 @@ auto Drone::getBestTarget() -> int
   int bestTag{-1};  // there will be tag of the target with the least time to hit
   double bestTT{std::numeric_limits<double>::max()};
 
-  ballistics::BallisticsInput input = {coord, {0, 0}, alt, attSpeed, accPath, ammo->mass, ammo->drag, ammo->lift};
+  solver_tmp.input.setAmmoParams(ammo).setDroneAccelerationPath(accPath)
+        .setDroneAltitude(alt).setDroneAttackSpeed(attSpeed);
+
+  // dto::BallisticsInput input = { alt, attSpeed, accPath,
+  //    ammo->mass, ammo->drag, ammo->lift};
   double ammo_fall_time = getAmmoFlyTime();
 
   for (size_t i = 0; i < nTargets; ++i) {
     TargetState& tgt = tgts[i];
-    tgt.calculateBallisticSolutionAt(tgt.time_total + ammo_fall_time, input);
+    Point tgt_lpos = tgt.getLeadPosition(tgt.time_total + ammo_fall_time);  //@get bt
+    tgt.dropRoute = solver_tmp.solve(coord, tgt_lpos); //  tgt.calculateBallisticSolutionAt(tgt.time_total + ammo_fall_time, input);
     double total_time = calculateTimeForDropRoute(coord, tgt);
 
     const double tgt_speed = tgt.getSpeed();
@@ -227,7 +238,9 @@ auto Drone::getBestTarget() -> int
       while (std::abs(tgt.time_accuracy) > accuracy_s &&
              count < kMaxRecalculations) {  // we are not accurate enough, so we can try to recalculate with new time estimation
         count++;
-        tgt.calculateBallisticSolutionAt(total_time + ammo_fall_time, input);
+        
+        tgt_lpos = tgt.getLeadPosition(total_time + ammo_fall_time);  //@get bt
+        tgt.dropRoute = solver_tmp.solve(coord, tgt_lpos); //tgt.calculateBallisticSolutionAt(total_time + ammo_fall_time, input);
         total_time = calculateTimeForDropRoute(coord, tgt);
       }
 
@@ -257,7 +270,7 @@ auto Drone::startNewMission(double time_step) -> int
   int tgt_tag = getBestTarget();
 
   TargetState& tgt = tgts[tgt_tag];
-  ballistics::DropSolution& drop_route = tgt.dropRoute;
+  dto::DropSolution& drop_route = tgt.dropRoute;
   Point dest = getDestination(drop_route);
 
   // decide on mission state
@@ -451,7 +464,7 @@ void Drone::moveDrone(double dt)
 
 std::ostream& operator<<(std::ostream& os, const drone::TargetState& tgt)
 {
-  return os << tgt.last_known << " V" << tgt.velocity << " Drop_route: " << tgt.dropRoute << " total_s: " << tgt.time_total;
+  return os << tgt.last_known << " V" << tgt.velocity << " Drop_route: TODO!"; //TODO << tgt.dropRoute << " total_s: " << tgt.time_total;
 }
 
 std::ostream& operator<<(std::ostream& os, const drone::Mission& m)
