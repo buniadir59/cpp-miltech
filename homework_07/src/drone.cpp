@@ -215,7 +215,7 @@ auto Drone::getBestTarget() -> int
   int bestTag{-1};  // there will be tag of the target with the least time to hit
   double bestTT{std::numeric_limits<double>::max()};
 
-  solver_tmp.input.setAmmoParams(ammo).setDroneAccelerationPath(accPath)
+  solver_tmp.input.setAmmoParams(*ammo).setDroneAccelerationPath(accPath)
         .setDroneAltitude(alt).setDroneAttackSpeed(attSpeed);
 
   // dto::BallisticsInput input = { alt, attSpeed, accPath,

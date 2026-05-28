@@ -4,7 +4,7 @@
 #include "dto/Ammo.hpp"
 #include "dto/MissionConfig.hpp"
 
-
+//Завантажувач даних: конфіг місії та параметри боєприпасу
 
 class IConfigLoader {
  public:

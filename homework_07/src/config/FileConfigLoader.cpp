@@ -1,30 +1,120 @@
-// include/loaders/file_config_loader.hpp
-#pragma once
-
-#include <string>
-//#include <vector>
-
+#include "config/FileConfigLoader.hpp"
 #include "dto/Ammo.hpp"
 #include "dto/MissionConfig.hpp"
-#include "interfaces/IConfigLoader.hpp"
 
+#include <nlohmann/json.hpp>
+#include <filesystem>
+#include <fstream>
+#include <exception>
 
-
-class FileConfigLoader : public IConfigLoader {
- public:
-  auto virtual load(const char* source) -> bool override;
-  auto virtual getConfig() const -> const dto::MissionConfig& override;
-  auto virtual getAmmoParams() const -> const dto::Ammo& override;
-
- private:
-  auto loadConfig(const std::string& config_path) -> bool;
-  auto loadAmmoTable(const std::string& ammo_path) -> bool;
- // auto findAmmoByName(const std::string& ammo_name) const -> const dto::Ammo*;
-
-  dto::MissionConfig config_{};
-  dto::Ammo selected_ammo_{};
-//  std::vector<dto::Ammo> ammo_table_{};
-};
-
+using json = nlohmann::json;
 
 //namespace loaders {}  // namespace loaders 
+namespace {
+  const char* const kAmmosFileName = "ammo.json";
+  const char* const kInputFileName = "config.json";
+
+  auto findAmmoByName(const dto::Ammo ammo_table[], std::size_t ammo_count, const char ammo_name[]) -> const dto::Ammo&
+  {
+    for (std::size_t i = 0; i < ammo_count; ++i) {
+      if (std::strcmp(ammo_table[i].name, ammo_name) == 0) {
+        return ammo_table[i];
+      }
+    }
+
+    throw std::runtime_error("Object not found");
+  }
+}
+
+  auto FileConfigLoader::load(const char* source) -> bool { //source =>homework_07/data/
+    //first, read input.json
+    std::filesystem::path full_path = std::filesystem::path(source) / kInputFileName;
+    std::ifstream json_file(full_path);
+
+    if (!json_file.is_open()) {
+      std::cerr << "Unable to open: " << full_path << '\n';
+      return false;
+    }
+
+    char ammo_name[32];
+    
+    try {
+      json jsn;
+      json_file >> jsn;
+
+      config_.drone_position = {jsn["drone"]["position"]["x"], jsn["drone"]["position"]["y"]};
+      config_.altitude = jsn["drone"]["altitude"];
+      config_.initial_direction = jsn["drone"]["initialDirection"];
+      config_.attack_speed = jsn["drone"]["attackSpeed"];
+      config_.acceleration_path = jsn["drone"]["accelerationPath"];
+      config_.angular_speed = jsn["drone"]["angularSpeed"];
+      config_.turn_threshold = jsn["drone"]["turnThreshold"];
+
+      config_.hit_rad = jsn["simulation"]["hitRadius"];
+      config_.time_step = jsn["simulation"]["timeStep"];
+
+      config_.tgt_time_step = jsn["targetArrayTimeStep"];
+
+      std::strncpy(ammo_name, jsn["ammo"].get<std::string>().c_str(), sizeof(ammo_name) - 1);
+      ammo_name[sizeof(ammo_name) - 1] = '\0';
+      json_file.close();
+    }
+    catch (const std::exception& error) {
+      std::cerr << "Invalid or incomplete data in " << full_path << '\n';
+      return false;
+    }
+
+    //second, read ammo.json
+    full_path = std::filesystem::path(source) / kAmmosFileName;
+    std::ifstream json_ammo_file(full_path);
+
+    if (!json_ammo_file.is_open()) {
+      std::cerr << "Unable to open: " << full_path << '\n';
+      return false;
+    }
+
+    try {
+      json ammos;
+      json_ammo_file >> ammos;
+
+      size_t nAmmos = ammos.size();
+      config_.nAmmos = nAmmos;
+      ammoTable_ = new dto::Ammo[nAmmos];
+
+ //   sim.nAmmos = nAmmos;
+
+    for (size_t i = 0; i < nAmmos; ++i) {
+      std::strncpy(ammoTable_[i].name, ammos[i]["name"].get<std::string>().c_str(), sizeof(ammoTable_[i].name) - 1);
+      ammoTable_[i].name[sizeof(ammoTable_[i].name) - 1] = '\0';
+      ammoTable_[i].mass = ammos[i]["mass"];
+      ammoTable_[i].drag = ammos[i]["drag"];
+      ammoTable_[i].lift = ammos[i]["lift"];
+    }
+    
+    //third, find ammo n the table
+    selected_ammo_ = findAmmoByName(ammoTable_, nAmmos, ammo_name);
+    return true;
+
+    }
+    catch (const std::exception& error) {
+      std::cerr << "Invalid or incomplete data in " << full_path << '\n';
+      return false;
+    }
+
+    return true;
+  }
+
+  auto FileConfigLoader::getConfig() const -> const dto::MissionConfig& {
+    return config_;
+  }
+
+  auto FileConfigLoader::getAmmoParams() const -> const dto::Ammo& {
+    return selected_ammo_;
+  }
+
+  FileConfigLoader::~FileConfigLoader() {
+    if (ammoTable_ != nullptr) {
+      delete [] ammoTable_;
+    }
+  }
+

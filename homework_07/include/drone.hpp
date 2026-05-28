@@ -1,11 +1,10 @@
 #pragma once
 
-//#include "ballistics.hpp"
 #include "math/point_math.hpp"
 #include "math/angle_math.hpp"
 #include "dto/Ammo.hpp"
 #include "dto/DropSolution.hpp"
-
+#include "dto/MissionConfig.hpp"
 #include <limits>
 #include <cstring>
 #include <iostream>
@@ -63,11 +62,6 @@ struct TargetState {  // current information on target available to drone
   // return projected position for lead targeting
   Point getLeadPosition(double delta_t) const { return last_known + velocity * (delta_t); };
 
-  /* TODO auto calculateBallisticSolutionAt(double delta_t, ballistics::BallisticsInput& input) -> void
-  {
-    input.target_pos = getLeadPosition(delta_t);  //@calc BS
-    dropRoute = ballistics::compute_drop_solution(input);
-  };*/
 };  // eo TargetState #########################
 
 std::ostream& operator<<(std::ostream& os, const drone::TargetState& tgt);
@@ -121,23 +115,6 @@ struct SimStep {
   Point predictedTarget;  // прогнозована позиція цілі
 };
 
-struct DroneConfig {
-  Point position{};
-  double altitude = 0.0;
-  double initial_direction{};
-  double attack_speed = 0.0;
-  double acceleration_path = 0.0;
-
-  char ammo_name[32] = {};
-
-  double angular_speed = 0.0;
-  double turn_threshold = 0.0;
-
-  size_t number_of_targets = 0;
-  //const dto::Ammo& ammo; //const dto::Ammo* ammo = nullptr;
-  size_t number_of_ammos = 0;
-  dto::Ammo* ammoTable{nullptr};
-};
 
 enum DroneState { STOPPED = 0, ACCELERATING, DECELERATING, TURNING, MOVING };
 
@@ -149,8 +126,8 @@ struct Drone {
 
   double angSpeed;   // Кутова швидкість повороту (рад/с)
   double turnThrld;  // Пороговий кут для зупинки (рад)
-  size_t nTargets;
-  const dto::Ammo& ammo;//const dto::Ammo* ammo = nullptr;
+  size_t nTargets = 5; //TODO !!!
+  const dto::Ammo* ammo = nullptr;//const dto::Ammo* ammo = nullptr;
 
   // constant - calculated once and saved for future use
   double kAcceleration;      // calculated from acceler time and attack speed
@@ -169,20 +146,19 @@ struct Drone {
   int countMaxRecalc = 0;  // max number of recalculated drop solutions
   int errcode = 0;
 
-  explicit Drone(const DroneConfig& config)
+  explicit Drone(const dto::MissionConfig& config)
     : alt{config.altitude}
     , accPath{config.acceleration_path}
     , attSpeed{config.attack_speed}
     , angSpeed{config.angular_speed}
     , turnThrld{config.turn_threshold}
-    , nTargets(config.number_of_targets)
-    , ammo(ammo::findAmmoByName(config.ammoTable, config.number_of_ammos, config.ammo_name))
-    , coord{config.position}
+   // , nTargets(config.)
+    , coord{config.drone_position}
     , dirRad{config.initial_direction}
-    , tgts{new TargetState[config.number_of_targets]}
+    , tgts{new TargetState[config.maxTargets]}
   {
     setDroneDirection(config.initial_direction);
-    kAcceleration = attSpeed * attSpeed / (2 * accPath);
+    kAcceleration = attSpeed * attSpeed / (2 * accPath);  
   }
 
   void setDroneDirection(double aR)

@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstddef>
-
 namespace dto {
 
 struct Ammo {
@@ -12,9 +10,3 @@ struct Ammo {
 };
 
 }  //eo namespace dto
-
-namespace ammo {
-
-auto findAmmoByName(const dto::Ammo ammo_table[], std::size_t ammo_count, const char ammo_name[]) -> const dto::Ammo&;
-
-}// namespace ammo

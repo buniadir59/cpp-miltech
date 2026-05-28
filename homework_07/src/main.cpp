@@ -1,6 +1,8 @@
 #include "drone.hpp"
+#include "dto/MissionConfig.hpp"
 #include "math/point_math.hpp"
-#include "dto/Ammo.hpp"
+#include "config/FileConfigLoader.hpp"
+
 #include "simulation.hpp"
 
 #include <nlohmann/json.hpp>
@@ -36,13 +38,13 @@ using Point = pointmath::Point;
 /* main.cpp - read input files, create objects, run simulation loop, manage output */
 
 namespace {
-const char* const kAmmosPath = "homework_03/data/ammo.json";
-const char* const kInputPath = "homework_03/data/config.json";
+//const char* const kAmmosPath = "homework_03/data/ammo.json";
+const char* const kInputPath = "homework_03/data";
 const char* const kTargetsPath = "homework_03/data/targets.json";
 const char* const kSimulationPath = "homework_03/data/simulation.json";
 
 // ## max number of simulation steps if any target not hit
-constexpr int kMaxSteps = 10000;
+constexpr int kMaxSteps = 100; //TODO !!! 10000;
 
 // **** helpers: read  input data from files write simulation output to file
 
@@ -61,7 +63,7 @@ auto readTargetsJSON(const char* file_path, sim::Simulation& sim)
     size_t tgtsCount = tgts["targetCount"];
     size_t timeSteps = tgts["timeSteps"];
    
-    auto coords = new Point*[tgtsCount]; // Point** 
+    auto coords = new Point*[tgtsCount]; 
 
     for (size_t i = 0; i < tgtsCount; ++i) {
       coords[i] = new Point[timeSteps];
@@ -84,7 +86,7 @@ auto readTargetsJSON(const char* file_path, sim::Simulation& sim)
   return 0;
 }
 
-auto readJSONInput(const char* file_path, sim::SimConfig& init_sim, drone::DroneConfig& init_dr)
+/*auto readJSONInput(const char* file_path, sim::SimConfig& init_sim, drone::DroneConfig& init_dr)
 {
   std::ifstream input_json(file_path);
 
@@ -152,7 +154,7 @@ auto readAmmosJSON(const char* file_path, sim::Simulation& sim) -> int
   }
 
   return 1;
-}
+}*/
 
 // Записати дані кроку у вихідн. JSON файл
 auto pushStepToJSON(json& out, const drone::SimStep& sim_step) -> void
@@ -189,28 +191,28 @@ auto main() -> int
     json j_out;
     j_out["steps"] = json::array();
     sim::SimConfig sim_init{};
-    drone::DroneConfig dr_init{};
+    
 
-    if (0 != readJSONInput(kInputPath, sim_init, dr_init))
-      return 1;
+    FileConfigLoader confloader;
+    if (!confloader.load(kInputPath)) {
+      throw std::runtime_error("Error loading configuration");
+    };
+    const dto::MissionConfig& mconf = confloader.getConfig();
+
+    // if (0 != readJSONInput(kInputPath, sim_init, dr_init))
+    //   return 1;
+    sim_init.time_step = mconf.time_step;
+    sim_init.tgt_time_step = mconf.tgt_time_step;
+    sim_init.hit_rad = mconf.hit_rad;
 
     sim::Simulation sim{sim_init};
-    if ((0 != readAmmosJSON(kAmmosPath, sim)) || (0 != readTargetsJSON(kTargetsPath, sim))) {
+    if ((0 != readTargetsJSON(kTargetsPath, sim))) {
       sim.freeMemory();
       return 1;
     }
-
-    dr_init.number_of_targets = sim.nTgts;
-    dr_init.number_of_ammos = sim.nAmmos;
-    dr_init.ammoTable = sim.ammoTable;
-   // dr_init.ammo = ammo::findAmmoByName(sim.ammoTable, sim.nAmmos, dr_init.ammo_name);
-    // if (dr_init.ammo == nullptr) {
-    //   std::cerr << "Unknown ammo in config.json:" << dr_init.ammo_name << '\n';
-    //   sim.freeMemory();
-    //   return 1;
-    // };
-
-    drone::Drone dr{dr_init};
+   
+    drone::Drone dr{mconf};
+    dr.ammo = &confloader.getAmmoParams();
 
     std::cout << std::fixed << std::setprecision(1);
 

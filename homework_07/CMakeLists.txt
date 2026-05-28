@@ -7,7 +7,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 
 add_library( hw7_core src/math/point_math.cpp src/math/angle_math.cpp 
-             src/solvers/AnalyticalSolver.cpp  src/simulation.cpp src/drone.cpp src/ammo.cpp 
+             src/solvers/AnalyticalSolver.cpp  src/config/FileConfigLoader.cpp 
+             src/simulation.cpp src/drone.cpp 
 )
 
 target_include_directories(hw7_core
