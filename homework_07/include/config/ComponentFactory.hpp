@@ -1,8 +1,8 @@
 #pragma once
 
-#include "interfaces/IBallisticSolver.h"
-#include "interfaces/ITargetProvider.h"
-#include "interfaces/IConfigLoader.h"
+#include "interfaces/IBallisticSolver.hpp"
+#include "interfaces/ITargetProvider.hpp"
+#include "interfaces/IConfigLoader.hpp"
 
 class ComponentFactory {
 
@@ -15,4 +15,5 @@ public:
     ITargetProvider* createProvider(ProviderType type, const char* param);
     IConfigLoader* createLoader(LoaderType type);
 
+    ~ComponentFactory();
 };

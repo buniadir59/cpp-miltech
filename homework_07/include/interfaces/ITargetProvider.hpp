@@ -2,6 +2,7 @@
 
 #include "dto/Target.hpp"
 
+//Провайдер цілей: кількість та дані кожної цілі (позиція, швидкість)
 class ITargetProvider {
 
 public:

@@ -34,7 +34,8 @@ core.*
 Thumbs.db
 
 # Runtime output files produced by homework CLI programs.
-output.txt
+output.txt 
+simulation.json
 
 # Local clangd cache
 .cache/

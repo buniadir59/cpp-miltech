@@ -2,8 +2,8 @@
 #include "dto/MissionConfig.hpp"
 #include "math/point_math.hpp"
 #include "config/FileConfigLoader.hpp"
-
-#include "simulation.hpp"
+#include "providers/JsonTargetProvider.hpp"
+#include "ManualSimulationClock.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -39,125 +39,17 @@ using Point = pointmath::Point;
 
 namespace {
 //const char* const kAmmosPath = "homework_03/data/ammo.json";
-const char* const kInputPath = "homework_03/data";
-const char* const kTargetsPath = "homework_03/data/targets.json";
-const char* const kSimulationPath = "homework_03/data/simulation.json";
+const char* const kInputPath = "homework_07/data";
+//const char* const kTargetsPath = "homework_07/data/targets.json";
+const char* const kSimulationPath = "simulation.json";
 
 // ## max number of simulation steps if any target not hit
 constexpr int kMaxSteps = 100; //TODO !!! 10000;
 
 // **** helpers: read  input data from files write simulation output to file
 
-auto readTargetsJSON(const char* file_path, sim::Simulation& sim)
-{
-  std::ifstream tgts_json(file_path);
-  if (!tgts_json.is_open()) {
-    std::cerr << "Unable to open: " << file_path << '\n';
-    return 1;
-  }
-
-  try {
-    json tgts;
-    tgts_json >> tgts;
-
-    size_t tgtsCount = tgts["targetCount"];
-    size_t timeSteps = tgts["timeSteps"];
-   
-    auto coords = new Point*[tgtsCount]; 
-
-    for (size_t i = 0; i < tgtsCount; ++i) {
-      coords[i] = new Point[timeSteps];
-
-      for (size_t j = 0; j < timeSteps; ++j) {
-        coords[i][j].x = tgts["targets"][i]["positions"][j]["x"];
-        coords[i][j].y = tgts["targets"][i]["positions"][j]["y"];
-      }
-    }
-
-    sim.nTgts = tgtsCount;
-    sim.nTargetSteps = timeSteps;
-    sim.tgtTracks = coords;
-  }
-  catch (const std::exception& error) {
-    std::cerr << "Invalid or incomplete data in " << file_path << '\n';
-    return 1;
-  }
-
-  return 0;
-}
-
-/*auto readJSONInput(const char* file_path, sim::SimConfig& init_sim, drone::DroneConfig& init_dr)
-{
-  std::ifstream input_json(file_path);
-
-  if (!input_json.is_open()) {
-    std::cerr << "Unable to open: " << file_path << '\n';
-    return 1;
-  }
-
-  try {
-    json jsn;
-    input_json >> jsn;
-
-    init_dr.position = {jsn["drone"]["position"]["x"], jsn["drone"]["position"]["y"]};
-    init_dr.altitude = jsn["drone"]["altitude"];
-    init_dr.initial_direction = jsn["drone"]["initialDirection"];
-    init_dr.attack_speed = jsn["drone"]["attackSpeed"];
-    init_dr.acceleration_path = jsn["drone"]["accelerationPath"];
-    init_dr.angular_speed = jsn["drone"]["angularSpeed"];
-    init_dr.turn_threshold = jsn["drone"]["turnThreshold"];
-
-    init_sim.hit_rad = jsn["simulation"]["hitRadius"];
-    init_sim.time_step = jsn["simulation"]["timeStep"];
-
-    init_sim.tgt_time_step = jsn["targetArrayTimeStep"];
-
-    std::strncpy(init_dr.ammo_name, jsn["ammo"].get<std::string>().c_str(), sizeof(init_dr.ammo_name) - 1);
-    init_dr.ammo_name[sizeof(init_dr.ammo_name) - 1] = '\0';
-  }
-  catch (const std::exception& error) {
-    std::cerr << "Invalid or incomplete data in " << file_path << '\n';
-    return 1;
-  }
-
-  return 0;
-}
-
-auto readAmmosJSON(const char* file_path, sim::Simulation& sim) -> int
-{
-  std::ifstream ammos_json(file_path);
-  if (!ammos_json.is_open()) {
-    std::cerr << "Unable to open: " << file_path << '\n';
-    return 1;
-  }
-
-  try {
-    json ammos;
-    ammos_json >> ammos;
-
-    size_t nAmmos = ammos.size();
-
-    sim.ammoTable = new dto::Ammo[nAmmos];
-    sim.nAmmos = nAmmos;
-
-    for (size_t i = 0; i < nAmmos; ++i) {
-      std::strncpy(sim.ammoTable[i].name, ammos[i]["name"].get<std::string>().c_str(), sizeof(sim.ammoTable[i].name) - 1);
-      sim.ammoTable[i].name[sizeof(sim.ammoTable[i].name) - 1] = '\0';
-      sim.ammoTable[i].mass = ammos[i]["mass"];
-      sim.ammoTable[i].drag = ammos[i]["drag"];
-      sim.ammoTable[i].lift = ammos[i]["lift"];
-    }
-    return 0;
-  }
-  catch (const std::exception& error) {
-    std::cerr << "Invalid or incomplete data in " << file_path << '\n';
-  }
-
-  return 1;
-}*/
-
 // Записати дані кроку у вихідн. JSON файл
-auto pushStepToJSON(json& out, const drone::SimStep& sim_step) -> void
+auto pushStepToJSON(json& out, const dto::SimStep& sim_step) -> void
 {
   json step;  // крок х-дрона у-дрона кут-дрона стан-дрона ціль№
   step["position"] = {{"x", sim_step.pos.x}, {"y", sim_step.pos.y}};
@@ -182,6 +74,15 @@ auto pushStepToJSON(json& out, const drone::SimStep& sim_step) -> void
   out["steps"].push_back(step);
 }
 
+std::ostream& operator<<(std::ostream& os, const dto::Mission& m)
+{
+  if (m.tgtTag < 0)
+    return os << "=>No target";
+
+  return os << "=>T#" << m.tgtTag << " tmr=" << m.timer << " TA" << m.destAngle << " Dest" << m.destPoint << ' ' << m.missionStateToStr()
+            << " TLP" << m.tgt_lead_pos;
+}
+
 }  // namespace
 
 // ################################################################################
@@ -190,7 +91,6 @@ auto main() -> int
   try {
     json j_out;
     j_out["steps"] = json::array();
-    sim::SimConfig sim_init{};
     
 
     FileConfigLoader confloader;
@@ -199,19 +99,10 @@ auto main() -> int
     };
     const dto::MissionConfig& mconf = confloader.getConfig();
 
-    // if (0 != readJSONInput(kInputPath, sim_init, dr_init))
-    //   return 1;
-    sim_init.time_step = mconf.time_step;
-    sim_init.tgt_time_step = mconf.tgt_time_step;
-    sim_init.hit_rad = mconf.hit_rad;
-
-    sim::Simulation sim{sim_init};
-    if ((0 != readTargetsJSON(kTargetsPath, sim))) {
-      sim.freeMemory();
-      return 1;
-    }
+    ManualSimulationClock simClock;
+    JsonTargetProvider tgtProvider(kInputPath, mconf.tgt_time_step, &simClock);
    
-    drone::Drone dr{mconf};
+    drone::Drone dr{mconf, &tgtProvider};
     dr.ammo = &confloader.getAmmoParams();
 
     std::cout << std::fixed << std::setprecision(1);
@@ -220,32 +111,34 @@ auto main() -> int
     DEBUG("\tAltitude,m: " << dr.alt << "\n\tAttack_Speed,m/s: " << dr.attSpeed << "\n\tAcceleration_path,m: " << dr.accPath
                            << "\n\tAngular_Speed,rad: " << dr.angSpeed << "\n\tTurn_Threshold,rad: " << dr.turnThrld
                            << "\n\tAmmo: " << dr.ammo->name << ", m=" << dr.ammo->mass << ", d=" << dr.ammo->drag << ", l=" << dr.ammo->lift
-                           << "\n\tHit_Radius,m:#" << sim.kHitRad << " acc,m/ss: " << dr.kAcceleration);
-
+                           << "\n\tHit_Radius,m:#" << mconf.hit_rad << " acc,m/ss: " << dr.kAcceleration);
+    
+    
+    dto::SimStep simStep{}; //TODO ?
     int stepCurrent = 0;       // step, incremented through simulation until maximum
-    double timeCurrent = 0.0;  // current time
-    sim.initializeTgtPositions(dr);
-    dr.startNewMission(sim.timeStep);  // calculate first ballistic solutions, skip results
+    //double timeCurrent = 0.0;  // current time
+  //  sim.initializeTgtPositions(dr);
+    dr.startNewMission(mconf.time_step);  // calculate first ballistic solutions, skip results
 
     for (size_t i = 0; i < dr.nTargets; ++i) {
       DEBUG("#T " << dr.tgts[i]);  // printAllTargets
     }      
 
-    dr.updateSimStep(sim.simStep);
-    pushStepToJSON(j_out, sim.simStep);  // save step 0 data
+    dr.updateSimStep(simStep);
+    pushStepToJSON(j_out, simStep);  // save step 0 data
 
      while (!dr.isMissionCompleted()) {
       // move simulation time forward and check if we are not over max steps
       ++stepCurrent;
-      timeCurrent += sim.timeStep;
+      simClock.advance(mconf.time_step);  //   timeCurrent += sim.timeStep;
       if (stepCurrent > kMaxSteps) {  // simulation is over!
         LOG("No hit, simulation time is over!");
         break;
       };
 
       // move targets and inform drone of their current positions, move drone according to its state, direction and speed
-      sim.moveTargets(timeCurrent, dr);
-      dr.moveDrone(sim.timeStep);
+  //    sim.moveTargets(timeCurrent, dr);
+      dr.moveDrone(mconf.time_step);
 
       // if we are on the way to target, continue mission
       if (dr.isOnMission()) {
@@ -253,30 +146,32 @@ auto main() -> int
         DEBUG("\tOn" << dr.mission);
 
         // analyze drone position on the drop path and change its state accordingly
-        if (dr.continueMission(sim.timeStep)) {  // fired, check  hit or miss
+        if (dr.continueMission(mconf.time_step)) {  // fired, check  hit or miss
           Point hit_coord;
-          double time_of_hit = timeCurrent + dr.getHitCoordAndAmmoFlyTime(hit_coord);
-          // check if hit expected
-          pointmath::Point tgt_pos_at_hit = sim.getTgtPositionAt(dr.mission.tgtTag, time_of_hit);
-          double hit_dist = pointmath::getLength(tgt_pos_at_hit - hit_coord);
+          const double timeOfFire = simClock.nowS();
+          const double time_of_hit = timeOfFire + dr.getHitCoordAndAmmoFlyTime(hit_coord);
+          // check if hit expected TODO
+        //  pointmath::Point tgt_pos_at_hit = sim.getTgtPositionAt(dr.mission.tgtTag, time_of_hit);
+        //  double hit_dist = pointmath::getLength(tgt_pos_at_hit - hit_coord);
+          LOG("\tFired at: step#" << stepCurrent << "(" << timeOfFire << "s).");
+          dr.breakMission();
+          // LOG("\tFired at: step#" << stepCurrent << "(" << timeOfFire << "s). Target coordinates at hit " << tgt_pos_at_hit
+          //                         << ", distance: " << hit_dist << 'm');
 
-          LOG("\tFired at: step#" << stepCurrent << "(" << timeCurrent << "s). Target coordinates at hit " << tgt_pos_at_hit
-                                  << ", distance: " << hit_dist << 'm');
-
-          if (sim.kHitRad > hit_dist) {
-            LOG("Hit!");
-            dr.completeMission();
-          }
-          else {
-            LOG("Missed!");
-            dr.breakMission();
-          };
+          //TODO check if Hit // if (sim.kHitRad > hit_dist) {
+          //   LOG("Hit!");
+          //   dr.completeMission();
+          // }
+          // else {
+          //   LOG("Missed!");
+          //   dr.breakMission();
+          // };
         }
       }
 
       // if we are not on the mission (mission failed, or cant be achieved anymore), try to start new one
       if (!dr.isOnMission()) {
-        dr.mission.tgtTag = dr.startNewMission(sim.timeStep);
+        dr.mission.tgtTag = dr.startNewMission(mconf.time_step);
 
         if (dr.isOnMission()) {
           for (size_t i = 0; i < dr.nTargets; ++i)
@@ -285,11 +180,11 @@ auto main() -> int
         }
       }
 
-      DEBUG("#" << stepCurrent << " (" << timeCurrent << "s) Dr:" << dr.coord << " Dir" << dr.dirRad << ' ' << dr.droneStateToStr()
+      DEBUG("#" << stepCurrent << " (" << simClock.nowS() << "s) Dr:" << dr.coord << " Dir" << dr.dirRad << ' ' << dr.droneStateToStr()
                 << " v=" << dr.speed << " err=" << dr.errcode);
 
-      dr.updateSimStep(sim.simStep);
-      pushStepToJSON(j_out, sim.simStep);
+      dr.updateSimStep(simStep);
+      pushStepToJSON(j_out, simStep);
 
     } //eo while
 
@@ -309,7 +204,6 @@ auto main() -> int
     }
 
     dr.freeMemory();
-    sim.freeMemory();
     return result;
 
   }  // eo try

@@ -26,6 +26,25 @@ namespace {
   }
 }
 
+auto FileConfigLoader::validate_input() const -> void 
+{
+  if ((config_.attack_speed < 0.0)
+      || (config_.turn_threshold < 0)) {
+    throw std::invalid_argument("Drone attack speed and turn threshold must not be negative");
+  }
+
+  if ((config_.acceleration_path <= 0.0)
+      || (config_.altitude <= 0.0) || (config_.angular_speed <= 0.0)
+      || (config_.hit_rad <= 0.0)) {
+    throw std::invalid_argument("Drone altitude, acceleration path, angular speed and hit radius must be positive");
+  }
+
+  if ((config_.time_step < 0.01)
+      || (config_.tgt_time_step < config_.time_step)) {
+    throw std::invalid_argument("Invalid time step and/or target time step value");
+  }
+}
+
   auto FileConfigLoader::load(const char* source) -> bool { //source =>homework_07/data/
     //first, read input.json
     std::filesystem::path full_path = std::filesystem::path(source) / kInputFileName;
@@ -57,7 +76,8 @@ namespace {
 
       std::strncpy(ammo_name, jsn["ammo"].get<std::string>().c_str(), sizeof(ammo_name) - 1);
       ammo_name[sizeof(ammo_name) - 1] = '\0';
-      json_file.close();
+      //json_file.close(); TODO if needed?
+      validate_input();
     }
     catch (const std::exception& error) {
       std::cerr << "Invalid or incomplete data in " << full_path << '\n';

@@ -3,11 +3,17 @@
 #include "math/point_math.hpp"
 #include "math/angle_math.hpp"
 #include "dto/Ammo.hpp"
-#include "dto/DropSolution.hpp"
+#include "dto/TargetState.hpp"
+//#include "dto/DropSolution.hpp"
 #include "dto/MissionConfig.hpp"
+#include "dto/Mission.hpp"
+//#include "providers/JsonTargetProvider.hpp"
+#include "interfaces/ITargetProvider.hpp"
+#include "dto/SimStep.hpp"
+
 #include <limits>
 #include <cstring>
-#include <iostream>
+//#include <iostream>
 
 using Point = pointmath::Point;
 using AngleRad = anglemath::AngleRad;
@@ -30,91 +36,6 @@ using AngleRad = anglemath::AngleRad;
 namespace drone {
 
 constexpr double eps = std::numeric_limits<double>::epsilon();
-
-struct TargetState {  // current information on target available to drone
-  bool has_previous = false;
-  double last_known_s = 0.0;
-  Point last_known{};
-  Point velocity{};  // estimated velocity from two last known positions
-
-  double time_accuracy = 0.0;
-  double time_total = 0.0;
-  double time_to_interim = 0.0;  // time to reach interim point
-  dto::DropSolution dropRoute{};
-
-  auto getSpeed() const -> double { return pointmath::getLength(velocity); }
-
-  void update(const Point& new_position, double time_s)
-  {  // receive new "real"(interpolated) position from simulation
-    if (has_previous) {
-      const double dt = time_s - last_known_s;
-      if (dt > eps)
-        velocity = (new_position - last_known) / dt;
-    }
-    else {  // velocity stays 0
-      has_previous = true;
-    }
-
-    last_known = new_position;
-    last_known_s = time_s;
-  }
-
-  // return projected position for lead targeting
-  Point getLeadPosition(double delta_t) const { return last_known + velocity * (delta_t); };
-
-};  // eo TargetState #########################
-
-std::ostream& operator<<(std::ostream& os, const drone::TargetState& tgt);
-
-enum MissionState { NONE, TO_INTERIMP, TO_FIREP, FIRED, FAILED, COMPLETED };
-
-struct Mission {
-  MissionState state{NONE};
-  int tgtTag = -1;
-  double timer = 0;       // time left to drop
-  double maxSpeed = 0.0;  // max speed to reach interim point
-
-  Point tgt_lead_pos{};
-  Point decelerateAtPoint{0, 0};  // point where to start decceleration to reach interim point
-  AngleRad destAngle{0.0};        // direction to destination, calculated at start of mission
-  Point destPoint{0, 0};
-
-  Point dropPoint{0, 0};  //=dest point when TO_FIREP, initially target from drop_route
-  Point aimPoint{0, 0};   // has sense when moving
-
-  auto missionStateToStr() const -> const char*
-  {
-    switch (state) {
-      case NONE:
-        return "NONE";
-      case TO_INTERIMP:
-        return "TO_INTERIMP";
-      case TO_FIREP:
-        return "TO_FIREP";
-      case FIRED:
-        return "FIRED";
-      case FAILED:
-        return "FAILED";
-      case COMPLETED:
-        return "COMPLETED";
-      default:
-        return "UNKNOWN_STATE";
-    }
-  }
-};  // eo Mission ############################
-
-std::ostream& operator<<(std::ostream& os, const drone::Mission& m);
-
-struct SimStep {
-  Point pos;              // позиція дрона
-  float direction;        // напрямок (рад)
-  int state;              // стан автомата (0-4)
-  int targetIdx;          // індекс поточної цілі
-  Point dropPoint;        // точка скиду (куди летить дрон)
-  Point aimPoint;         // куди впаде бомба (якщо скинути зараз)
-  Point predictedTarget;  // прогнозована позиція цілі
-};
-
 
 enum DroneState { STOPPED = 0, ACCELERATING, DECELERATING, TURNING, MOVING };
 
@@ -139,14 +60,16 @@ struct Drone {
   Point coord{};               // initialized from input file
   Point dirXY{};               // direction by X and Y (as Point)  according to dirAngleRad
   AngleRad dirRad{0.0};        // напрямок дрона (радіани, від осі X) //initialized from input file
-  Mission mission{};           // current mission
+  dto::Mission mission{};           // current mission
 
-  TargetState* tgts{nullptr};  // known to drone information about targets
+  dto::TargetState* tgts{nullptr};  // known to drone information about targets
 
   int countMaxRecalc = 0;  // max number of recalculated drop solutions
   int errcode = 0;
 
-  explicit Drone(const dto::MissionConfig& config)
+  ITargetProvider* tgtProvider = nullptr;
+
+  explicit Drone(const dto::MissionConfig& config,  ITargetProvider* tgtProvider)
     : alt{config.altitude}
     , accPath{config.acceleration_path}
     , attSpeed{config.attack_speed}
@@ -155,10 +78,12 @@ struct Drone {
    // , nTargets(config.)
     , coord{config.drone_position}
     , dirRad{config.initial_direction}
-    , tgts{new TargetState[config.maxTargets]}
+    , tgts{new dto::TargetState[config.maxTargets]}
   {
     setDroneDirection(config.initial_direction);
     kAcceleration = attSpeed * attSpeed / (2 * accPath);  
+    
+    this->tgtProvider = tgtProvider;
   }
 
   void setDroneDirection(double aR)
@@ -177,7 +102,7 @@ struct Drone {
   auto getTimeToFlyToInterimPoint(double dist) const -> double;
 
   auto getTimeToFlyToFP(double dist_to_fp) const -> double;
-  auto calculateTimeForDropRoute(Point start, TargetState& tgt) -> double;
+  auto calculateTimeForDropRoute(Point start, dto::TargetState& tgt) -> double;
   auto recalculateFPOntheRoute(double ammo_f_dist, double time_step) -> int;
 
   auto getBestTarget() -> int;
@@ -186,19 +111,21 @@ struct Drone {
   void moveDrone(double dt);
   auto startNewMission(double time_step) -> int;
   auto isOnMission() const -> bool { return mission.tgtTag >= 0; }
-  auto breakMission() -> MissionState
+  auto breakMission() -> dto::MissionState
   {
-    mission.state = NONE;
+    mission.state = dto::NONE;
     mission.tgtTag = -1;
     state = speed > 0.0 ? DECELERATING : STOPPED;
-    return NONE;
+    return dto::NONE;
   }
-  auto completeMission() -> void { mission.state = COMPLETED; };
-  auto isMissionCompleted() -> bool { return mission.state == COMPLETED; }
+  auto completeMission() -> void { mission.state = dto::COMPLETED; };
+  auto isMissionCompleted() -> bool { return mission.state == dto::COMPLETED; }
   auto continueMission(double time_step) -> bool;  //=> true if fired
 
   auto getHitCoordAndAmmoFlyTime(Point& hit_pos) -> double;
 
+//TODO
+  Point getLeadPosition(size_t tgtIdx, double delta_t) const; // { return last_known + velocity * (delta_t); };
   auto droneStateToStr() const -> const char*
   {
     switch (state) {
@@ -217,7 +144,7 @@ struct Drone {
     }
   }
 
-  auto updateSimStep(SimStep& step) const -> void;
+  auto updateSimStep(dto::SimStep& step) const -> void;
 
   auto freeMemory() -> void
   {

@@ -1,4 +1,5 @@
 #include "drone.hpp"
+#include "dto/Target.hpp"
 #include "math/point_math.hpp"
 #include "math/angle_math.hpp"
 //#include "dto/Ammo.hpp"
@@ -128,7 +129,7 @@ auto Drone::recalculateFPOntheRoute(double ammo_f_dist, double time_step) -> int
       return 1;  // we will miss, because ammo ff time will be less than needed
     }
     else {  // fire!
-      mission.state = FIRED;
+      mission.state = dto::FIRED;
       state = DECELERATING;  //@continue mission
       return 0;
     }
@@ -172,7 +173,7 @@ auto Drone::recalculateFPOntheRoute(double ammo_f_dist, double time_step) -> int
 
 // calculate and update total_time for target tgt, and update time_accuracy as diff from previous calculation
 // returns calculated total time value
-auto Drone::calculateTimeForDropRoute(Point start, TargetState& tgt) -> double
+auto Drone::calculateTimeForDropRoute(Point start, dto::TargetState& tgt) -> double
 {
   dto::DropSolution& drop_route = tgt.dropRoute;
   Point& pos_fire = tgt.dropRoute.fire_p;
@@ -223,12 +224,13 @@ auto Drone::getBestTarget() -> int
   double ammo_fall_time = getAmmoFlyTime();
 
   for (size_t i = 0; i < nTargets; ++i) {
-    TargetState& tgt = tgts[i];
-    Point tgt_lpos = tgt.getLeadPosition(tgt.time_total + ammo_fall_time);  //@get bt
+    dto::TargetState& tgt = tgts[i];
+    dto::Target target = tgtProvider->getTarget(i);
+    Point tgt_lpos = target.position + target.velocity * (tgt.time_total + ammo_fall_time); //tgt.getLeadPosition(tgt.time_total + ammo_fall_time);  //@get bt
     tgt.dropRoute = solver_tmp.solve(coord, tgt_lpos); //  tgt.calculateBallisticSolutionAt(tgt.time_total + ammo_fall_time, input);
     double total_time = calculateTimeForDropRoute(coord, tgt);
 
-    const double tgt_speed = tgt.getSpeed();
+    const double tgt_speed = pointmath::getLength(target.velocity); //tgt.getSpeed();
     if (tgt_speed > eps) {  // we shall not calculate time accuracy for still target
       const double accuracy_s = std::max(kAccuracy_m / tgt_speed, 0.1);
 
@@ -239,7 +241,7 @@ auto Drone::getBestTarget() -> int
              count < kMaxRecalculations) {  // we are not accurate enough, so we can try to recalculate with new time estimation
         count++;
         
-        tgt_lpos = tgt.getLeadPosition(total_time + ammo_fall_time);  //@get bt
+        tgt_lpos = target.position + target.velocity * (total_time + ammo_fall_time); //tgt.getLeadPosition(total_time + ammo_fall_time);  //@get bt
         tgt.dropRoute = solver_tmp.solve(coord, tgt_lpos); //tgt.calculateBallisticSolutionAt(total_time + ammo_fall_time, input);
         total_time = calculateTimeForDropRoute(coord, tgt);
       }
@@ -269,7 +271,7 @@ auto Drone::startNewMission(double time_step) -> int
 
   int tgt_tag = getBestTarget();
 
-  TargetState& tgt = tgts[tgt_tag];
+  dto::TargetState& tgt = tgts[tgt_tag];
   dto::DropSolution& drop_route = tgt.dropRoute;
   Point dest = getDestination(drop_route);
 
@@ -277,15 +279,15 @@ auto Drone::startNewMission(double time_step) -> int
   if (drop_route.has_intermediate_point) {  // check distance
     double dist_to_interim = pointmath::getLength(dest - coord);
     if (dist_to_interim < kAccuracy_m) {  // we are practically at Interim point
-      mission.state = TO_FIREP;
+      mission.state = dto::TO_FIREP;
       dest = getFP(drop_route);
     }
     else {
-      mission.state = TO_INTERIMP;
+      mission.state = dto::TO_INTERIMP;
     }
   }
   else {
-    mission.state = TO_FIREP;
+    mission.state = dto::TO_FIREP;
   }
 
   mission.destAngle = pointmath::getAngle(dest - coord);
@@ -302,7 +304,7 @@ auto Drone::startNewMission(double time_step) -> int
     state = TURNING;
   }
 
-  if (mission.state == TO_INTERIMP) {
+  if (mission.state == dto::TO_INTERIMP) {
     const double dist_to_interim = pointmath::getLength(dest - coord);
     const Point dir_to_dest = pointmath::cossin(mission.destAngle.value);
 
@@ -317,7 +319,10 @@ auto Drone::startNewMission(double time_step) -> int
   }
   mission.timer = tgt.time_total;
   mission.dropPoint = getFP(drop_route);
-  mission.tgt_lead_pos = tgt.getLeadPosition(mission.timer + getAmmoFlyTime());  //@sm
+
+  dto::Target target = tgtProvider->getTarget(tgt_tag);    
+  mission.tgt_lead_pos = target.position + target.velocity * (mission.timer + getAmmoFlyTime()); 
+  // tgt.getLeadPosition(mission.timer + getAmmoFlyTime());  //@sm
   return tgt_tag;
 };
 
@@ -333,14 +338,16 @@ auto Drone::continueMission(double time_step) -> bool
     mission.timer = 0.0;
   }
 
-  TargetState& currentTgt = tgts[mission.tgtTag];
+  dto::TargetState& currentTgt = tgts[mission.tgtTag];
   double ammo_f_dist = currentTgt.dropRoute.horizontal_fall_distance_m;
   double ammo_f_time = currentTgt.dropRoute.fall_time_s;
 
-  mission.tgt_lead_pos = currentTgt.getLeadPosition(mission.timer + ammo_f_time);  //@cm
+  dto::Target target = tgtProvider->getTarget(mission.tgtTag);    
+  mission.tgt_lead_pos = target.position + target.velocity * (mission.timer + ammo_f_time); 
+  //mission.tgt_lead_pos = currentTgt.getLeadPosition(mission.timer + ammo_f_time);  //@cm
 
   switch (mission.state) {
-    case TO_FIREP:
+    case dto::TO_FIREP:
       // reevaluate fire point and turn if needed, then check if we are at fire point to fire
       if ((errcode = recalculateFPOntheRoute(ammo_f_dist, time_step)) != 0) {
         breakMission();  // mission failed, we will reevaluate target and try again
@@ -355,10 +362,10 @@ auto Drone::continueMission(double time_step) -> bool
 
       break;
 
-    case TO_INTERIMP: {
+    case dto::TO_INTERIMP: {
       if (state == STOPPED) {  // at interim, turn to fire point
-        mission.state = TO_FIREP;
-        const TargetState tgt = tgts[mission.tgtTag];
+        mission.state = dto::TO_FIREP;
+        const dto::TargetState tgt = tgts[mission.tgtTag];
         mission.destPoint = getFP(tgt.dropRoute);
         mission.destAngle = pointmath::getAngle(mission.destPoint - coord);
         state = TURNING;  //@continue to fire point
@@ -390,7 +397,7 @@ auto Drone::continueMission(double time_step) -> bool
       throw std::runtime_error("ERR_TODO -mission state not implemented in continueMission: ");
   }
 
-  return mission.state == FIRED;
+  return mission.state ==dto:: FIRED;
 }
 
 // ## retuns time of ammo fly
@@ -462,20 +469,20 @@ void Drone::moveDrone(double dt)
   }
 }
 
-std::ostream& operator<<(std::ostream& os, const drone::TargetState& tgt)
+std::ostream& operator<<(std::ostream& os, const dto::TargetState& tgt)
 {
-  return os << tgt.last_known << " V" << tgt.velocity << " Drop_route: TODO!"; //TODO << tgt.dropRoute << " total_s: " << tgt.time_total;
+  return os << tgt.time_accuracy << " tt" << tgt.time_total << " Drop_route: TODO!"; //TODO << tgt.dropRoute << " total_s: " << tgt.time_total;
 }
 
-std::ostream& operator<<(std::ostream& os, const drone::Mission& m)
+/*std::ostream& operator<<(std::ostream& os, const drone::Mission& m)
 {
   if (m.tgtTag < 0)
     return os << "=>No target";
 
   return os << "=>T#" << m.tgtTag << " tmr=" << m.timer << " TA" << m.destAngle << " Dest" << m.destPoint << ' ' << m.missionStateToStr()
             << " TLP" << m.tgt_lead_pos;
-}
-auto Drone::updateSimStep(SimStep& step) const -> void
+}*/
+auto Drone::updateSimStep(dto::SimStep& step) const -> void
 {
   step.pos = coord;                                   // позиція дрона
   step.direction = static_cast<float>(dirRad.value);  // напрямок (рад)

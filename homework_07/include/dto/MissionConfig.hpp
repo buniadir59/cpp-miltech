@@ -20,8 +20,6 @@ struct MissionConfig {
   double tgt_time_step{};
   size_t nAmmos = 0;
   //const dto::Ammo& ammo;
-  //char ammo_name[32] = {}; 
-
   
    int maxTargets = 5; //TODO ??
 // SourceType loaderType;
