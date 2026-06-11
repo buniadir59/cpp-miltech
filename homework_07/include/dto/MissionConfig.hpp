@@ -19,12 +19,9 @@ struct MissionConfig {
   double time_step{};
   double tgt_time_step{};
   size_t nAmmos = 0;
-  //const dto::Ammo& ammo;
   
-   int maxTargets = 5; //TODO ??
-// SourceType loaderType;
-// char loaderParam[256];
-// bool useTableSolver;
+  int maxTargets = 5; //TODO ?? not used
+
 };
 
 }

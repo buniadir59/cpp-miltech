@@ -5,10 +5,7 @@
 
 namespace dto {
 
-struct BallisticsInput {
- // pointmath::Point drone_pos{};
- // pointmath::Point target_pos{};
-
+struct BallisticsInput { //only const for simulation params
   double drone_z = 0.0;
   double attack_speed = 0.0;
   double acceleration_path = 0.0;

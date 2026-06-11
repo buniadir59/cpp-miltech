@@ -3,6 +3,7 @@
 #include "dto/Target.hpp"
 #include "math/point_math.hpp"
 
+#include <cmath>
 #include <cstddef>
 #include <nlohmann/json.hpp>
 #include <filesystem>
@@ -18,13 +19,25 @@ namespace {
 
 } //eo namespace
 
-auto JsonTargetProvider::makeTarget(size_t timeIdx, const pointmath::Point* track) -> dto::Target
-{
-  size_t prevInd = timeIdx == 0 ? nOfTgtTimeSteps - 1 : timeIdx - 1;
-  return dto::Target {.position = track[timeIdx], 
-          .velocity = (track[timeIdx] - track[prevInd]) / tgtTimeStep};
 
+auto JsonTargetProvider::makeTarget(double currentTimeS,
+                                    const pointmath::Point* track) -> dto::Target {
+  const double cycle_time = tgtTimeStep * static_cast<double>(nOfTgtTimeSteps);
+  const double time_in_cycle = std::fmod(currentTimeS, cycle_time);
+
+  const auto idx = static_cast<std::size_t>(std::floor(time_in_cycle / tgtTimeStep));
+  const std::size_t next_idx = (idx + 1) % nOfTgtTimeSteps;
+
+  const double local_time = time_in_cycle - static_cast<double>(idx) * tgtTimeStep;
+
+  const pointmath::Point velocity = (track[next_idx] - track[idx]) / tgtTimeStep;
+
+  return dto::Target{
+      .position = track[idx] + velocity * local_time,
+      .velocity = velocity,
+  };
 }
+
 
 auto JsonTargetProvider::getTarget(int idx) -> dto::Target {
   if (clock == nullptr) {
@@ -37,14 +50,11 @@ auto JsonTargetProvider::getTarget(int idx) -> dto::Target {
 
   const double currentTimeS = clock->nowS();
 
-  const size_t timeIdx = static_cast<std::size_t>(floor(currentTimeS / tgtTimeStep)) 
-                                                  % nOfTgtTimeSteps;
-
-  return makeTarget(timeIdx, tgtTracks[idx]);
+  return makeTarget(currentTimeS, tgtTracks[idx]);
 }
 
 
-auto JsonTargetProvider::parseJson(const char* source) -> void{
+auto JsonTargetProvider::parseJson(const char* source) -> void {
 {
     std::filesystem::path full_path = std::filesystem::path(source) / kTgtsFileName;
     std::ifstream json_file(full_path);
@@ -61,12 +71,18 @@ auto JsonTargetProvider::parseJson(const char* source) -> void{
     tgtCount = tgts_j["targetCount"];
     nOfTgtTimeSteps = tgts_j["timeSteps"];
 
-    if ((tgtCount > kMaxTargetCount) || (nOfTgtTimeSteps > kMaxTargetTimeSteps))
+    if ((tgtCount > kMaxTargetCount) || (nOfTgtTimeSteps > kMaxTargetTimeSteps) || (nOfTgtTimeSteps < 2))
     {
       throw std::runtime_error("Invalid parameters in targets json.");
     }
-    
-    auto coords = new Point*[tgtCount]; 
+
+    for (size_t i = 0; i < tgtCount; ++i) {
+      for (size_t j = 0; j < nOfTgtTimeSteps; ++j) {
+        tgtTracks[i][j].x = tgts_j["targets"][i]["positions"][j]["x"];
+        tgtTracks[i][j].y = tgts_j["targets"][i]["positions"][j]["y"];
+      }
+    }
+/*     auto coords = new Point*[tgtCount]; 
       for (size_t i = 0; i < tgtCount; ++i) {
       coords[i] = new Point[nOfTgtTimeSteps];
 
@@ -76,7 +92,7 @@ auto JsonTargetProvider::parseJson(const char* source) -> void{
       }
     }
 
-    tgtTracks = coords;
+    tgtTracks = coords; */
   }
   catch (const std::exception& error) {
     throw std::runtime_error("Error loading targets");
@@ -86,7 +102,7 @@ auto JsonTargetProvider::parseJson(const char* source) -> void{
 }
 
 
-JsonTargetProvider::~JsonTargetProvider() 
+/* JsonTargetProvider::~JsonTargetProvider() 
 {
   if (tgtTracks) {
     for (size_t i = 0; i < tgtCount; ++i) {
@@ -94,4 +110,4 @@ JsonTargetProvider::~JsonTargetProvider()
     }
     delete[] tgtTracks;
   }
-}
+} */

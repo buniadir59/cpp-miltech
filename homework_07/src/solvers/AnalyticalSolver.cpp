@@ -144,13 +144,13 @@ auto AnalyticalSolver::solve(const pointmath::Point& drone_position,
   return result;
 }
 
-// dto::DropSolution AnalyticalSolver::solve(const pointmath::Point& drone_position,
-//                      const pointmath::Point& target_position,
-//                      double altitude_m, double att_speed, double acc_path,
-//                      const dto::Ammo& ammo) const
-// {
-//   input.setAmmoParams(ammo).setDroneAccelerationPath(acc_path).setDroneAltitude(altitude_m).setDroneAttackSpeed(att_speed); 
-//   return solve(drone_position,target_position);
-// }
+auto AnalyticalSolver::solve(const pointmath::Point& drone_position,
+                     const pointmath::Point& target_position,
+                     double altitude_m, double att_speed, double acc_path,
+                     const dto::Ammo& ammo) -> dto::DropSolution
+{
+  input.setAmmoParams(ammo).setDroneAccelerationPath(acc_path).setDroneAltitude(altitude_m).setDroneAttackSpeed(att_speed); 
+  return solve(drone_position,target_position);
+}
 
 

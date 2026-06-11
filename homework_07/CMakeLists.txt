@@ -11,7 +11,10 @@ add_library( hw7_core src/math/point_math.cpp src/math/angle_math.cpp
              src/providers/JsonTargetProvider.cpp
              src/solvers/AnalyticalSolver.cpp  
              src/config/FileConfigLoader.cpp 
-             src/drone.cpp
+             src/MissionProcessor.cpp
+             src/DroneControl.cpp
+             src/Mission.cpp
+             src/TargetControl.cpp
 )
 
 target_include_directories(hw7_core
