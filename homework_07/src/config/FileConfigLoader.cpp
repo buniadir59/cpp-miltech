@@ -76,7 +76,7 @@ auto FileConfigLoader::validate_input() const -> void
 
       std::strncpy(ammo_name, jsn["ammo"].get<std::string>().c_str(), sizeof(ammo_name) - 1);
       ammo_name[sizeof(ammo_name) - 1] = '\0';
-      //json_file.close(); TODO if needed?
+  
       validate_input();
     }
     catch (const std::exception& error) {

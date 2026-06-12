@@ -107,8 +107,6 @@ auto AnalyticalSolver::solve(const pointmath::Point& drone_position,
     validate_input();
     dto::DropSolution result{};
 
- //TODO if (!hasFFDataReady(input)) { ...//   saveFFInput(input);  }
-
     result.fall_time_s = calculate_free_fall_time_s();
     result.horizontal_fall_distance_m = calculate_horizontal_fall_distance_m(result.fall_time_s);
 
@@ -122,7 +120,7 @@ auto AnalyticalSolver::solve(const pointmath::Point& drone_position,
 
   const double distance_to_target_m = pointmath::getLength(diff);
 
-  if (distance_to_target_m < kEpsilon) {  // TODO: solution is not optimal here, better to go in the direction opposite to target
+  if (distance_to_target_m < kEpsilon) {  // NB! solution is not optimal here, better to go in the direction opposite to target
     result.has_intermediate_point = true;
     result.interm_p = {target_position.x + minimum_distance_m, target_position.y};
 

@@ -21,7 +21,7 @@
 namespace {
         auto operator<<(std::ostream& os, const dto::SimStatistics& s) -> std::ostream& {
             return os << "\nTotal targets: " << s.total 
-            << "\nFrom them: \n\tactve:" << s.active 
+            << "\nFrom them: \n\tactive:" << s.active 
             << "\n\tunder attack:" << s.underAttack 
             << "\n\tdestroyed:" << s.destroyed 
             << "\nTime elapsed, sec:" << s.timeElapsed;

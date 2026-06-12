@@ -63,7 +63,7 @@ auto MissionProcessor::init(const char* configSource) -> void {
 auto MissionProcessor::checkFireResult(TargetControl& tgt) -> bool {
   if (std::abs(clock->nowS() - tgt.hitTime) <= mconf->time_step / 2.0) {
     double dist = pointmath::getLength(tgt.now.position - tgt.hitCoord);
-    LOG("Hit at dist=" << dist << " hit_time=" << tgt.hitTime);
+    LOG("@ Hit at dist=" << dist << "@ hit_time=" << tgt.hitTime);
     if (dist <= mconf->hit_rad) {
       tgt.state = core::DESTROYED;
     } else {
@@ -87,6 +87,8 @@ auto MissionProcessor::getSimulationStatistics() -> dto::SimStatistics& {
       case DESTROYED:
         ++countDestrd;
         break;
+      case UNREACHABLE:
+        ++countAct;
       default:
         break;
     }
@@ -113,8 +115,12 @@ auto MissionProcessor::updateTargets() -> void {
 
         case ATTACKED:
           if (checkFireResult(targetDepo[i])) {
-            LOG(i << ": time=" << clock->nowS()
-                  << " Result of attack=" << targetDepo[i].targetStateToStr());
+            LOG(stepCurrent << "@ T#" << i << "@ time=" << clock->nowS()
+                  << "@ Result of attack=" << targetDepo[i].targetStateToStr()
+                 << "@ TPos@" << targetDepo[i].now.position
+                << "@ TV@" << targetDepo[i].now.velocity
+                << "@ TSpeed=" << targetDepo[i].speed                 
+          );
           }
           break;
 
@@ -153,17 +159,20 @@ bool MissionProcessor::step() {
     }
 
     if (!mission.isOnMission()) {
-      while (hasNext() ) { 
-      
+      while (hasNext() ) {     
         if (currentTgtTag >= 0) { //active target found @step
-            LOG("Try T#" << currentTgtTag << ' ' << targetDepo[currentTgtTag].targetStateToStr());
+            DEBUG(stepCurrent << "@Try@ T#" << currentTgtTag << ' ' << targetDepo[currentTgtTag].targetStateToStr()
+                << "@ TPos@" << targetDepo[currentTgtTag].now.position
+                << "@ TV@" << targetDepo[currentTgtTag].now.velocity
+                << "@ TSpeed=" << targetDepo[currentTgtTag].speed
+                << "@ dist=" << pointmath::getLength(targetDepo[currentTgtTag].now.position - drone->coord)
+                << "@ angle=" << pointmath::getAngle(targetDepo[currentTgtTag].now.position - drone->coord)
+              );
           if (mission.startNewMission(targetDepo[currentTgtTag]) == true) { //go on mission
             break;  
-          } else {
-            LOG("Skipped T#" << currentTgtTag << ' ' << targetDepo[currentTgtTag].targetStateToStr());//targetDepo[currentTgtTag].state = UNREACHABLE; 
-          }
-        } else { //no available targets, wait 
-          LOG("@Wait!");
+          } 
+        } else { //no available targets, wait moving until farther (at minimum distance or more)
+          drone->state = ACCELERATING; 
           break;
         }
       }
@@ -171,10 +180,23 @@ bool MissionProcessor::step() {
 
     pushStepToJSON(); 
 
-    DEBUG(stepCurrent <<" step to T#" << currentTgtTag << '@' << drone->droneStateToStr() 
-        << "@Dr@" << drone->coord 
-        << "@Dir" << drone->dirRad << "@v=" << drone->speed 
+    if (currentTgtTag >= 0) {
+    DEBUG(stepCurrent <<"@to T#" << currentTgtTag << " " << mission.missionStateToStr()
+        << '@' << drone->droneStateToStr() 
+        << "@ Dr@" << drone->coord 
+        << "@ Dir" << drone->dirRad << "@v=" << drone->speed 
+        << "@ TPos@" << targetDepo[currentTgtTag].now.position
+        << "@ TV@" << targetDepo[currentTgtTag].now.velocity
+        << "@ Tv=" << targetDepo[currentTgtTag].speed
+        << "@ tmr=" << mission.timer
         );
+    } else {
+    DEBUG(stepCurrent <<"@ idle @ @" << drone->droneStateToStr() 
+        << "@ Dr@" << drone->coord 
+        << "@ Dir" << drone->dirRad << "@ v=" << drone->speed 
+        );
+    }
+
     return true;
 }
 /* 
@@ -285,7 +307,7 @@ auto MissionProcessor::fire() -> void {
       targetDepo[currentTgtTag].state = core::ATTACKED;     
       targetDepo[currentTgtTag].hitCoord = drone->getAimPoint(mission.ammoHorizDist); 
       targetDepo[currentTgtTag].hitTime = clock->nowS() + mission.ammoFlyTime; 
-      LOG("@at FP: Fired!@"<< currentTgtTag <<"time=" << clock->nowS() << "@hitCoord@" << targetDepo[currentTgtTag].hitCoord );
+      LOG(stepCurrent<<"@Fired! T#"<< currentTgtTag <<"@ hittime=" << targetDepo[currentTgtTag].hitTime << "@hitCoord@" << targetDepo[currentTgtTag].hitCoord );
 }
 
 } //eo namespace core

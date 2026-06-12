@@ -29,7 +29,7 @@ const char* const kInputPath = "homework_07/data";
 const char* const kSimulationPath = "simulation.json";
 
 // ## max number of simulation steps if any target not hit
-constexpr int kMaxSteps = 10000; //TODO !!! 10000;
+constexpr int kMaxSteps = 10000;
 
 constexpr int kMaxTargets = 32; //max number of targets
 constexpr int kMaxRecalculations = 6; //for drop route

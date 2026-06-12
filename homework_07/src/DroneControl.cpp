@@ -31,7 +31,7 @@ namespace core {
     // we assume, starting and final drone states are Stopped
     double cruize_dist = dist - 2.0 * accPath;
 
-    if (cruize_dist > defines::eps) { //TODO ? epskAccuracy_m
+    if (cruize_dist > defines::eps) {
       double cruizeT = cruize_dist / attSpeed;
       return cruizeT + 4.0 * accPath / attSpeed;
     }
@@ -56,9 +56,9 @@ namespace core {
   }
 
   
-  auto DroneControl::setDestinationAngle(anglemath::AngleRad dest_angle)-> void {
+ /*  auto DroneControl::setDestinationAngle(anglemath::AngleRad dest_angle)-> void {
     destAngle = dest_angle;
-  }
+  } */
 
   /****
  * Оновити координати, швидкість та стан дрона відповідно до поточної кроку

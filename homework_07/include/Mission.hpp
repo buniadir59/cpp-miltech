@@ -73,13 +73,13 @@ public:
   {
     switch (state) {
       case NONE:
-        return "NOT_ON_MISSION";
+        return "_IDLE";
       case TO_INTERIMP:
         return "TO_INTERIMP";
       case TO_FIREP:
         return "TO_FIREP";
       default:
-        return "UNKNOWN_STATE";
+        return "_UNKNOWN";
     }
   }
 };  // eo Mission ############################

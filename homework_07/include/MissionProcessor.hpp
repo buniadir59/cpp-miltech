@@ -40,7 +40,7 @@ class MissionProcessor {
 
   int stepCurrent = 0;       // step, incremented through simulation until maximum
 
-  TargetControl targetDepo[defines::kMaxTargets]{}; //TODO use  memory effectively?
+  TargetControl targetDepo[defines::kMaxTargets]{}; 
 
   int target_count_{0};
 

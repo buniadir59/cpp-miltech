@@ -5,7 +5,7 @@
 
 namespace core {
 
-enum TgtState {ACTIVE, ATTACKED, DESTROYED, UNREACHABLE, UNKNWN }; //NB! UNKNWN must be last //TODO ?
+enum TgtState {ACTIVE, ATTACKED, DESTROYED, UNREACHABLE, UNKNWN }; 
 
 class TargetControl {  // current information on target available to mission
   
@@ -26,7 +26,7 @@ public:
       case ACTIVE:
         return "ACTIVE";
       case ATTACKED:
-        return "UNDER ATTACK";
+        return "UNDER_ATTACK";
       case DESTROYED:
         return "DESTROYED";
       case UNREACHABLE:

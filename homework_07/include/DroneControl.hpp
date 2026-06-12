@@ -24,13 +24,12 @@ public:
   pointmath::Point coord{};               // initialized from input file
   anglemath::AngleRad dirRad{0.0};        // напрямок дрона (радіани, від осі X) //initialized from input file
   pointmath::Point dirXY{};               // direction by X and Y (as Point)  according to dirAngleRad
- // pointmath::Point aimPoint{};  // куди впаде бомба (якщо скинути зараз)  
   
   double speed = 0.0;          // current dr speed, m/s
 
   DrState state = STOPPED;  // assume initial state is full stop 
 
-  auto setDestinationAngle(anglemath::AngleRad destAngle)-> void;
+  //auto setDestinationAngle(anglemath::AngleRad destAngle)-> void;
 
   void setDroneDirection(double aR);
 

@@ -19,8 +19,6 @@ struct MissionConfig {
   double time_step{};
   double tgt_time_step{};
   size_t nAmmos = 0;
-  
-  int maxTargets = 5; //TODO ?? not used
 
 };
 

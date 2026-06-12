@@ -30,7 +30,7 @@ public:
         parseJson(path);
     }
     
-    ~JsonTargetProvider();
+ //   ~JsonTargetProvider();
 
     auto getTargetCount() -> int override { return static_cast<int>(tgtCount); }
 
