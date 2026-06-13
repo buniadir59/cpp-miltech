@@ -49,20 +49,20 @@ auto main() -> int
   int result = 1;
 
   ComponentFactory factory;
-  auto* simClock = factory.createSimulationClock(ComponentFactory::SimulationClockType::MANUAL);
-  auto* confLoader = factory.createLoader(ComponentFactory::LoaderType::FILE);
-  auto* solver = factory.createSolver(ComponentFactory::SolverType::ANALYTICAL);
-  auto* tgtProvider = factory.createProvider(ComponentFactory::ProviderType::JSON, defines::kInputPath);
+  auto simClock = factory.createSimulationClock(ComponentFactory::SimulationClockType::MANUAL);
+  auto confLoader = factory.createLoader(ComponentFactory::LoaderType::FILE);
+  auto solver = factory.createSolver(ComponentFactory::SolverType::ANALYTICAL);
+  auto tgtProvider = factory.createProvider(ComponentFactory::ProviderType::JSON, defines::kInputPath);
 
   try {
     if (simClock == nullptr || confLoader == nullptr || solver == nullptr || tgtProvider == nullptr) {
       throw std::runtime_error("One or more components unavailable");
     }
 
-    core::MissionProcessor processor(tgtProvider, solver, confLoader, simClock);
+    core::MissionProcessor processor(tgtProvider.get(), solver.get(), confLoader.get(), simClock.get());
 
     const dto::MissionConfig* mcnf = processor.init(defines::kInputPath);
-    factory.init(mcnf, simClock, tgtProvider);
+    factory.init(mcnf, simClock.get(), tgtProvider.get());
 
     while (processor.hasNext()) {
 

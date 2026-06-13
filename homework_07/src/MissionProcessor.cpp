@@ -45,7 +45,7 @@ auto MissionProcessor::init(const char* configSource) -> const dto::MissionConfi
 
   currentTgtTag = 0;
   stepCurrent = 0;
-  //  updateTargets(); pushStepToJSON();
+
   return &*mconf;
 }
 
@@ -134,7 +134,10 @@ auto MissionProcessor::updateTargets() -> void
 // return false if #steps > max
 bool MissionProcessor::step()
 {
-
+  if (!drone) {
+    throw std::runtime_error("Drone data missing");
+  }
+  
   if (stepCurrent > defines::kMaxSteps) {  // simulation is over!
     return false;
   }
@@ -156,7 +159,7 @@ bool MissionProcessor::step()
                           << targetDepo[currentTgtTag].now.position << "@ TSpeed=" << targetDepo[currentTgtTag].speed
                           << "@ dist=" << pointmath::getLength(targetDepo[currentTgtTag].now.position - drone->coord)
                           << "@ angle=" << pointmath::getAngle(targetDepo[currentTgtTag].now.position - drone->coord));
-        if (mission.startNewMission(targetDepo[currentTgtTag]) == true) {  // go on mission
+        if (mission.startNewMission(targetDepo[currentTgtTag])) {  // go on mission
           break;
         }
       }
@@ -179,7 +182,7 @@ bool MissionProcessor::step()
                       << "@ v=" << drone->speed);
   }
 
-  ++stepCurrent; 
+  ++stepCurrent;
   drone->move(mconf->time_step);
   return true;
 }

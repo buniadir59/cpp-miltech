@@ -8,18 +8,17 @@
 #define ENABLE_DEBUG 0
 
 #if ENABLE_LOG
-#define LOG(msg) std::cout << "[LOG] " << msg << std::endl;
+#define LOG(msg) std::cout << "[LOG] " << msg << '\n';
 #else
 #define LOG(msg)
 #endif
 
 #if ENABLE_DEBUG
-#define DEBUG(msg) std::cout << "[DEBUG] " << msg << std::endl;
+#define DEBUG(msg) std::cout << "[DEBUG] " << msg << '\n';
 #else
 #define DEBUG(msg)
 #endif
 
-#define START_FROM_TGT 3
 #define DEBUG_FILE_NAME "debug_07.txt"
 
 namespace defines {

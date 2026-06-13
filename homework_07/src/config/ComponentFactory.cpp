@@ -9,44 +9,46 @@
 #include "config/ManualSimulationClock.hpp"
 #include "dto/MissionConfig.hpp"
 
-ISimulationClock* ComponentFactory::createSimulationClock(SimulationClockType type)
+#include <memory>
+
+std::unique_ptr<ISimulationClock> ComponentFactory::createSimulationClock(SimulationClockType type)
 {
   switch (type) {
     case SimulationClockType::MANUAL:
-      return new ManualSimulationClock();
+      return std::make_unique<ManualSimulationClock>();
 
     default:
       return nullptr;
   }
 }
 
-IBallisticSolver* ComponentFactory::createSolver(SolverType type)
+std::unique_ptr<IBallisticSolver> ComponentFactory::createSolver(SolverType type)
 {
   switch (type) {
     case SolverType::ANALYTICAL:
-      return new AnalyticalSolver();
+      return std::make_unique<AnalyticalSolver>();
 
     default:
       return nullptr;
   }
 }
 
-ITargetProvider* ComponentFactory::createProvider(ProviderType type, const char* path)
+std::unique_ptr<ITargetProvider> ComponentFactory::createProvider(ProviderType type, const char* path)
 {
   switch (type) {
     case ProviderType::JSON:
-      return new JsonTargetProvider(path);
+      return std::make_unique<JsonTargetProvider>(path);
 
     default:
       return nullptr;
   }
 }
 
-IConfigLoader* ComponentFactory::createLoader(LoaderType type)
+std::unique_ptr<IConfigLoader> ComponentFactory::createLoader(LoaderType type)
 {
   switch (type) {
     case LoaderType::FILE:
-      return new FileConfigLoader();
+      return std::make_unique<FileConfigLoader>();
 
     default:
       return nullptr;

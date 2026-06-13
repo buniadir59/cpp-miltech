@@ -129,7 +129,7 @@ auto FileConfigLoader::getAmmoParams() const -> const dto::Ammo&
 
 FileConfigLoader::~FileConfigLoader()
 {
-  if (ammoTable_ != nullptr) {
+
     delete[] ammoTable_;
-  }
+
 }

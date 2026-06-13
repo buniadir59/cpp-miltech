@@ -11,5 +11,5 @@ public:
 
   virtual auto init(const ISimulationClock* clock) -> void = 0;
 
-  virtual ~ITargetProvider() {}
+  virtual ~ITargetProvider() = default;
 };

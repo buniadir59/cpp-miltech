@@ -36,9 +36,8 @@ auto DroneControl::getTimeToFlyToInterimPoint(double dist) const -> double
     double cruizeT = cruize_dist / attSpeed;
     return cruizeT + 4.0 * accPath / attSpeed;
   }
-  else {
-    return 2.0 * std::sqrt(dist / kAcceleration);
-  }
+
+  return 2.0 * std::sqrt(dist / kAcceleration);
 }
 
 auto DroneControl::getTimeToFlyToFP(double dist_to_fp) const -> double

@@ -6,17 +6,20 @@
 #include "interfaces/ISimulationClock.hpp"
 #include "dto/MissionConfig.hpp"
 
+#include <memory>
+#include <cstdint>
+
 class ComponentFactory {
 public:
-  enum class SolverType { ANALYTICAL };
-  enum class ProviderType { JSON };
-  enum class LoaderType { FILE };
-  enum class SimulationClockType { MANUAL };
+  enum class SolverType: std::uint8_t { ANALYTICAL };
+  enum class ProviderType: std::uint8_t { JSON };
+  enum class LoaderType:  std::uint8_t { FILE };
+  enum class SimulationClockType: std::uint8_t { MANUAL };
 
-  IBallisticSolver* createSolver(SolverType type);
-  ITargetProvider* createProvider(ProviderType type, const char* path);
-  IConfigLoader* createLoader(LoaderType type);
-  ISimulationClock* createSimulationClock(SimulationClockType type);
+  std::unique_ptr<IBallisticSolver> createSolver(SolverType type);
+  std::unique_ptr<ITargetProvider> createProvider(ProviderType type, const char* path);
+  std::unique_ptr<IConfigLoader> createLoader(LoaderType type);
+  std::unique_ptr<ISimulationClock> createSimulationClock(SimulationClockType type);
 
   void init(const dto::MissionConfig* mconf, ISimulationClock* simClock, ITargetProvider* tgtProv);
 

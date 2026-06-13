@@ -4,9 +4,11 @@
 #include "math/angle_math.hpp"
 #include "dto/MissionConfig.hpp"
 
+#include <cstdint>
+
 namespace core {
 
-enum DrState { STOPPED = 0, ACCELERATING, DECELERATING, TURNING, MOVING };
+enum DrState: std::uint8_t { STOPPED = 0, ACCELERATING, DECELERATING, TURNING, MOVING };
 
 class DroneControl {
   double angSpeed;                // Кутова швидкість повороту (рад/с)

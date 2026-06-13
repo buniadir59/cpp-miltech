@@ -5,8 +5,8 @@
 namespace dto {
 
 struct Target {
-  pointmath::Point position{};
-  pointmath::Point delta{};  // diff between next and current
+  pointmath::Point position;
+  pointmath::Point delta;  // diff between next and current
 };
 
 }  // namespace dto

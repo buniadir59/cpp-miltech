@@ -4,20 +4,23 @@
 #include "dto/MissionConfig.hpp"
 #include "interfaces/IConfigLoader.hpp"
 
+//#include <memory>
+
 // читає config.json і ammo.json
 class FileConfigLoader : public IConfigLoader {
 public:
-  auto virtual load(const char* source) -> bool override;
+  auto load(const char* source) -> bool override;
 
-  auto virtual getConfig() const -> const dto::MissionConfig& override;
-  auto virtual getAmmoParams() const -> const dto::Ammo& override;
+  auto getConfig() const -> const dto::MissionConfig& override;
+  auto getAmmoParams() const -> const dto::Ammo& override;
 
   ~FileConfigLoader() override;
+
 
 private:
   void validate_input() const;
 
   dto::MissionConfig config_{};
   dto::Ammo selected_ammo_{};
-  dto::Ammo* ammoTable_{nullptr};
+  dto::Ammo* ammoTable_ = nullptr;
 };

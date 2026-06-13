@@ -41,6 +41,7 @@ class MissionProcessor {
   int target_count_{0};
 
   dto::SimStatistics stats{};  // counted stats: active, under attack,destroyed, total
+  const dto::MissionConfig* mconf = nullptr;
 
   auto updateTargets() -> void;
 
@@ -55,16 +56,14 @@ class MissionProcessor {
 public:
   auto init(const char* configSource) -> const dto::MissionConfig*;  // Завантажити конфіг через IConfigLoader, підготувати дані для
                                                                      // ітерації
-  auto hasNext() -> bool;                                            // Перевірити, чи є ще необроблені цілі
-  void reset() { currentTgtTag = 0; };                               // Почати ітерацію спочатку
-  void changeSolver(IBallisticSolver* s) { mission.setSolver(s); };  // Підмінити solver на льоту (Стратегія)
+  auto hasNext() -> bool;               // Перевірити, чи є ще необроблені цілі
+  void reset() { currentTgtTag = 0; };  // Почати ітерацію спочатку
+  void changeSolver(IBallisticSolver* solver) { mission.setSolver(solver); };  // Підмінити solver на льоту (Стратегія)
 
   bool step();  // Обробити наступну ціль: взяти дані з ITargetProvider, обчислити через IBallisticSolver,
                 // return false if time is out
 
   auto getSimulationStatistics() -> dto::SimStatistics&;
-
-  const dto::MissionConfig* mconf = nullptr;
 
   MissionProcessor(ITargetProvider* targets, IBallisticSolver* solver, IConfigLoader* loader, const ISimulationClock* clock)
     : targets_(targets)
@@ -73,6 +72,8 @@ public:
     , mission{solver} {};
 
   ~MissionProcessor();
+
+  
 };
 
 }  // namespace core

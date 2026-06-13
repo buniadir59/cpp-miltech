@@ -59,7 +59,7 @@ auto Mission::continueMission() -> bool
   }
 
   if (state == TO_INTERIMP) {
-    if (calculateMission() == false) {  //@cm
+    if (!calculateMission()) {  //@cm
       breakMission();
       return false;
     };
@@ -70,7 +70,8 @@ auto Mission::continueMission() -> bool
   switch (state) {
     case TO_FIREP:
       // reevaluate fire point and turn if needed, then check if we are at fire point to fire
-      if ((missionResultCode = recalculateFPOntheRoute(target)) > 0) {  // error
+      missionResultCode = recalculateFPOntheRoute(target);
+      if (missionResultCode > 0) {  // error
         breakMission();                                                 //@cm // mission failed, we will reevaluate target and try again
         return false;
       }
@@ -82,36 +83,6 @@ auto Mission::continueMission() -> bool
       TODO! Але це нечесно! заряд не долетить - хммм, подивитись баллістичне рішення для іншої швидкості? */
       return missionResultCode == -1;  // fired or continue
       break;
-
-    case TO_INTERIMP: {
-      if (drone->state == core::STOPPED) {  // at interim, turn to fire point
-        state = TO_FIREP;
-        destPoint = dropRoute.fire_p;
-        destAngle = pointmath::getAngle(destPoint - drone->coord);
-        drone->state = core::TURNING;  //@continue to fire point
-        return false;
-      }
-      else if (drone->state == core::ACCELERATING) {  // check max speed
-        if (maxSpeed < drone->attSpeed)               // otherwise continue acccelerating to interim until Moving
-        {
-          double next_speed = drone->speed + drone->kAcceleration * time_step;
-          if ((drone->speed <= maxSpeed) && (next_speed > maxSpeed)) {
-            // check if next step is better
-            if ((maxSpeed - drone->speed) < (next_speed - maxSpeed)) {  // start decelerating
-              drone->state = core::DECELERATING;
-            }
-          }
-        }
-      }
-      else if (drone->state == core::MOVING) {  // check if we are at point to start decelerating
-        double dist_to_dec = pointmath::getLength(decelerateAtPoint - drone->coord);
-        if (dist_to_dec <= kAccuracy_m) {  // we just missed the interim point, or we are close enough,
-          drone->state = core::DECELERATING;
-        }
-      }
-      // NB! if state == TURNING) - continue to interim until Accelerating at Move
-      //  and if state == DECELERATING) - continue to interim  until Stopped
-    } break;
 
     default:
       throw std::runtime_error("ERR_TODO -mission state not implemented in continueMission: ");
@@ -130,8 +101,9 @@ auto Mission::recalculateFPOntheRoute(dto::Target& target) -> int
 
     timeFPAccuracy = timeToFP - timer;
     timer = timeToFP;
-    if (std::abs(timeFPAccuracy) < currTgt->getAccuracyS(kAccuracy_m))
-      break;  // accuracy is ok
+    if (std::abs(timeFPAccuracy) < currTgt->getAccuracyS(kAccuracy_m)) {
+        break;  // accuracy is ok
+    }   
   }
 
   if (count == defines::kMaxRecalculations) {  // mission impossible
@@ -140,7 +112,8 @@ auto Mission::recalculateFPOntheRoute(dto::Target& target) -> int
     return 3;
   }
 
-  double angle2tgt, dist2tgt;
+  double angle2tgt{0.0};
+  double dist2tgt{0.0};
   pointmath::trxPointToDistAngle(tgt_lead_pos - drone->coord, dist2tgt, angle2tgt);
 
   destAngle = angle2tgt;  // update destination according to lead targeting
@@ -155,19 +128,19 @@ auto Mission::recalculateFPOntheRoute(dto::Target& target) -> int
       currTgt->state = core::UNREACHABLE;
       return 1;  // we will miss, because ammo ff time will be less than needed
     }
-    else {                                // fire!
-      drone->state = core::DECELERATING;  //@continue mission
-      return -1;                          // fire
-    }
+    // fire!
+    drone->state = core::DECELERATING;  //@continue mission
+    return -1;                          // fire
   }
-  else if (delta2fp < 0) {
+
+  if (delta2fp < 0) {
     LOG("@Missed FP!@dist to FP=" << delta2fp);
     currTgt->state = core::UNREACHABLE;
     return 2;
   }
 
   double time_fly_to_FP = drone->getTimeToFlyToFP(delta2fp);
-  AngleRad deltaAngle = AngleRad(angle2tgt - drone->dirRad.value);
+  auto deltaAngle = AngleRad(angle2tgt - drone->dirRad.value);
   double min_time_to_turn = drone->getMinTimeToTurn(deltaAngle, time_fly_to_FP, time_step);
 
   destPoint = drone->coord + pointmath::cossin(angle2tgt) * delta2fp;
@@ -213,7 +186,8 @@ auto Mission::getTargetLeadPosition(const dto::Target& tgt, double deltaT) const
 auto Mission::recalculateTimeToFP(dto::Target& target) -> double
 {                                                                     // used in cycle in recalculate FPOntheRoute
   tgt_lead_pos = getTargetLeadPosition(target, timer + ammoFlyTime);  //@rcfp
-  double angle2tgt, dist2tgt;
+  double angle2tgt{0.0};
+  double dist2tgt{0.0};
   pointmath::trxPointToDistAngle(tgt_lead_pos - drone->coord, dist2tgt, angle2tgt);
   destAngle = angle2tgt;  // update destination according to lead targeting
   double delta2fp = dist2tgt - ammoHorizDist;
@@ -249,7 +223,7 @@ auto Mission::calculateTimeForDropRoute(const pointmath::Point& start) -> double
       double angle_to_fire = 0.0;
       pointmath::trxPointToDistAngle(pos_fire - dropRoute.interm_p, dist_to_fire, angle_to_fire);
 
-      AngleRad turn_between_legs = AngleRad(angle_to_fire - angle_to_interim);
+      auto turn_between_legs = AngleRad(angle_to_fire - angle_to_interim);
 
       total_time = time_to_interim;
       total_time += drone->getTurnTime(turn_between_legs);
@@ -257,8 +231,9 @@ auto Mission::calculateTimeForDropRoute(const pointmath::Point& start) -> double
     }
   }
 
-  if (dropRoute.has_intermediate_point == false) {
-    double dist, angle;
+  if (!dropRoute.has_intermediate_point) {
+    double dist{0.0};
+    double angle{0.0};
     pointmath::trxPointToDistAngle(pos_fire - start, dist, angle);
     total_time = drone->getTimeToFlyToFP(dist);
     double minTurnTime = drone->getMinTimeToTurn(AngleRad(angle - drone->dirRad.value), total_time, time_step);
@@ -299,8 +274,9 @@ auto Mission::calculateMissionDropeRoute(const dto::Target& target) -> bool
       total_time = calculateTimeForDropRoute(drone->coord);  //@cmdr
     }
 
-    if (count > countMaxRecalc)
+    if (count > countMaxRecalc) {
       countMaxRecalc = count;
+    }
   }
 
   DEBUG("@CMDR@ count=" << count << ' ' << missionStateToStr() << "@ TPos=@" << target.position << "@ Tv=" << currTgt->speed
@@ -313,7 +289,7 @@ auto Mission::calculateMission() -> bool
 {
   const dto::Target& target = currTgt->now;
 
-  if (calculateMissionDropeRoute(target) == false) {
+  if (!calculateMissionDropeRoute(target)) {
     currTgt->state = core::UNREACHABLE;
     breakMission();
     return false;
@@ -322,7 +298,7 @@ auto Mission::calculateMission() -> bool
   state = TO_FIREP;  // initial
   dropPoint = dropRoute.fire_p;
 
-  if (dropRoute.has_intermediate_point == true) {  // there is interim point, discard mission
+  if (dropRoute.has_intermediate_point) {  // there is interim point, discard mission
     currTgt->state = core::UNREACHABLE;
     breakMission();
     return false;

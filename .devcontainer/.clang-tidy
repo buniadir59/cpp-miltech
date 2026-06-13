@@ -24,9 +24,10 @@ HeaderFilterRegex: '(^|/)(homework_[0-9]+|include|src)/'
 # Зауваження static analyzer мають ламати перевірку: це найчастіше реальні баги.
 # Решта checks лишаються warning-ами, щоб clang-tidy був навчальним
 # інструментом, а не стіною стилістичних помилок для ДЗ.
-WarningsAsErrors: clang-analyzer-*,
+WarningsAsErrors: 'clang-analyzer-*'
 
 # Checks for completenes of virtual/override in classes
-ExtraArgs: 
-  -WSuggest-override,
-  -Wnon-virtual-dtor,
+ExtraArgs:
+  - '-WSuggest-override'
+  - '-Wnon-virtual-dtor'
+

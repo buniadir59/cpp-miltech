@@ -7,9 +7,11 @@
 #include "math/point_math.hpp"
 #include "math/angle_math.hpp"
 
+#include <cstdint>
+
 namespace core {  // namespace dto {
 
-enum MissionState { NONE, TO_INTERIMP, TO_FIREP };
+enum MissionState: std::uint8_t { NONE, TO_INTERIMP, TO_FIREP };
 
 class Mission {
   IBallisticSolver* solver;
@@ -26,9 +28,14 @@ class Mission {
 
   int countMaxRecalc = 0;  // max number of recalculated drop solutions
   int missionResultCode = 0;
-  double kAccuracy_m{0.0};                   // distance to destination to decide it is reached
-  double maxSpeed{0.0};                      // drone max speed to reach interim point
-  pointmath::Point decelerateAtPoint{0, 0};  // point where to start decceleration to reach interim point
+  double kAccuracy_m{0.0};  // distance to destination to decide it is reached
+
+  double timer = 0;  // time left to drop
+  MissionState state{NONE};
+
+  anglemath::AngleRad destAngle;  // direction to destination, calculated at start of mission
+  pointmath::Point destPoint;
+  DroneControl* drone = nullptr;
 
   auto calculateMission() -> bool;
 
@@ -38,25 +45,19 @@ class Mission {
   auto calculateMissionDropeRoute(const dto::Target& target) -> bool;
 
   auto solveDropRoute() -> void;
-  auto getTargetLeadPosition(const dto::Target& tgt,
-                             double deltaT) const -> pointmath::Point;  //  {return tgt.position + tgt.velocity * deltaT;}
+  [[nodiscard]] auto getTargetLeadPosition(const dto::Target& tgt,
+                                           double deltaT) const -> pointmath::Point;  //  {return tgt.position + tgt.velocity * deltaT;}
 
 public:
-  DroneControl* drone = nullptr;
-  MissionState state{NONE};
-
   double ammoHorizDist = 0.0;
   double ammoFlyTime = 0.0;
-  double timer = 0;  // time left to drop
 
-  anglemath::AngleRad destAngle{0.0};  // direction to destination, calculated at start of mission
-  pointmath::Point destPoint{0, 0};
-  pointmath::Point tgt_lead_pos{};
-  pointmath::Point dropPoint{0, 0};  //=dest point when TO_FIREP, initially target from drop_route
+  pointmath::Point tgt_lead_pos;
+  pointmath::Point dropPoint;  //=dest point when TO_FIREP, initially target from drop_route
 
   auto init(double time_step, DroneControl* drone, double tgt_step, const dto::Ammo& ammo) -> void;
 
-  auto isOnMission() const -> bool { return state != core::NONE; };
+  [[nodiscard]] auto isOnMission() const -> bool { return state != core::NONE; };
   auto startNewMission(TargetControl& tgt) -> bool;
   auto continueMission() -> bool;
   auto breakMission() -> void { state = core::NONE; };
@@ -68,7 +69,7 @@ public:
   {
   }
 
-  auto missionStateToStr() const -> const char*
+  [[nodiscard]] auto missionStateToStr() const -> const char*
   {
     switch (state) {
       case NONE:
