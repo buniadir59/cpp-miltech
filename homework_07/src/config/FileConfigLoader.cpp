@@ -9,99 +9,93 @@
 
 using json = nlohmann::json;
 
-//namespace loaders {}  // namespace loaders 
 namespace {
-  const char* const kAmmosFileName = "ammo.json";
-  const char* const kInputFileName = "config.json";
+const char* const kAmmosFileName = "ammo.json";
+const char* const kInputFileName = "config.json";
 
-  auto findAmmoByName(const dto::Ammo ammo_table[], std::size_t ammo_count, const char ammo_name[]) -> const dto::Ammo&
-  {
-    for (std::size_t i = 0; i < ammo_count; ++i) {
-      if (std::strcmp(ammo_table[i].name, ammo_name) == 0) {
-        return ammo_table[i];
-      }
-    }
-
-    throw std::runtime_error("Object not found");
-  }
-}
-
-auto FileConfigLoader::validate_input() const -> void 
+auto findAmmoByName(const dto::Ammo ammo_table[], std::size_t ammo_count, const char ammo_name[]) -> const dto::Ammo&
 {
-  if ((config_.attack_speed < 0.0)
-      || (config_.turn_threshold < 0)) {
+  for (std::size_t i = 0; i < ammo_count; ++i) {
+    if (std::strcmp(ammo_table[i].name, ammo_name) == 0) {
+      return ammo_table[i];
+    }
+  }
+
+  throw std::runtime_error("Object not found");
+}
+}  // namespace
+
+auto FileConfigLoader::validate_input() const -> void
+{
+  if ((config_.attack_speed < 0.0) || (config_.turn_threshold < 0)) {
     throw std::invalid_argument("Drone attack speed and turn threshold must not be negative");
   }
 
-  if ((config_.acceleration_path <= 0.0)
-      || (config_.altitude <= 0.0) || (config_.angular_speed <= 0.0)
-      || (config_.hit_rad <= 0.0)) {
+  if ((config_.acceleration_path <= 0.0) || (config_.altitude <= 0.0) || (config_.angular_speed <= 0.0) || (config_.hit_rad <= 0.0)) {
     throw std::invalid_argument("Drone altitude, acceleration path, angular speed and hit radius must be positive");
   }
 
-  if ((config_.time_step < 0.01)
-      || (config_.tgt_time_step < config_.time_step)) {
+  if ((config_.time_step < 0.01) || (config_.tgt_time_step < config_.time_step)) {
     throw std::invalid_argument("Invalid time step and/or target time step value");
   }
 }
 
-  auto FileConfigLoader::load(const char* source) -> bool { //source =>homework_07/data/
-    //first, read input.json
-    std::filesystem::path full_path = std::filesystem::path(source) / kInputFileName;
-    std::ifstream json_file(full_path);
+auto FileConfigLoader::load(const char* source) -> bool
+{
+  // first, read input.json
+  std::filesystem::path full_path = std::filesystem::path(source) / kInputFileName;
+  std::ifstream json_file(full_path);
 
-    if (!json_file.is_open()) {
-      std::cerr << "Unable to open: " << full_path << '\n';
-      return false;
-    }
+  if (!json_file.is_open()) {
+    std::cerr << "Unable to open: " << full_path << '\n';
+    return false;
+  }
 
-    char ammo_name[32];
-    
-    try {
-      json jsn;
-      json_file >> jsn;
+  char ammo_name[32];
 
-      config_.drone_position = {jsn["drone"]["position"]["x"], jsn["drone"]["position"]["y"]};
-      config_.altitude = jsn["drone"]["altitude"];
-      config_.initial_direction = jsn["drone"]["initialDirection"];
-      config_.attack_speed = jsn["drone"]["attackSpeed"];
-      config_.acceleration_path = jsn["drone"]["accelerationPath"];
-      config_.angular_speed = jsn["drone"]["angularSpeed"];
-      config_.turn_threshold = jsn["drone"]["turnThreshold"];
+  try {
+    json jsn;
+    json_file >> jsn;
 
-      config_.hit_rad = jsn["simulation"]["hitRadius"];
-      config_.time_step = jsn["simulation"]["timeStep"];
+    config_.drone_position = {jsn["drone"]["position"]["x"], jsn["drone"]["position"]["y"]};
+    config_.altitude = jsn["drone"]["altitude"];
+    config_.initial_direction = jsn["drone"]["initialDirection"];
+    config_.attack_speed = jsn["drone"]["attackSpeed"];
+    config_.acceleration_path = jsn["drone"]["accelerationPath"];
+    config_.angular_speed = jsn["drone"]["angularSpeed"];
+    config_.turn_threshold = jsn["drone"]["turnThreshold"];
 
-      config_.tgt_time_step = jsn["targetArrayTimeStep"];
+    config_.hit_rad = jsn["simulation"]["hitRadius"];
+    config_.time_step = jsn["simulation"]["timeStep"];
 
-      std::strncpy(ammo_name, jsn["ammo"].get<std::string>().c_str(), sizeof(ammo_name) - 1);
-      ammo_name[sizeof(ammo_name) - 1] = '\0';
-  
-      validate_input();
-    }
-    catch (const std::exception& error) {
-      std::cerr << "Invalid or incomplete data in " << full_path << '\n';
-      return false;
-    }
+    config_.tgt_time_step = jsn["targetArrayTimeStep"];
 
-    //second, read ammo.json
-    full_path = std::filesystem::path(source) / kAmmosFileName;
-    std::ifstream json_ammo_file(full_path);
+    std::strncpy(ammo_name, jsn["ammo"].get<std::string>().c_str(), sizeof(ammo_name) - 1);
+    ammo_name[sizeof(ammo_name) - 1] = '\0';
 
-    if (!json_ammo_file.is_open()) {
-      std::cerr << "Unable to open: " << full_path << '\n';
-      return false;
-    }
+    validate_input();
+  }
+  catch (const std::exception& error) {
+    std::cerr << "Invalid or incomplete data in " << full_path << '\n';
+    return false;
+  }
 
-    try {
-      json ammos;
-      json_ammo_file >> ammos;
+  // second, read ammo.json
+  full_path = std::filesystem::path(source) / kAmmosFileName;
+  std::ifstream json_ammo_file(full_path);
 
-      size_t nAmmos = ammos.size();
-      config_.nAmmos = nAmmos;
-      ammoTable_ = new dto::Ammo[nAmmos];
+  if (!json_ammo_file.is_open()) {
+    std::cerr << "Unable to open: " << full_path << '\n';
+    return false;
+  }
 
- //   sim.nAmmos = nAmmos;
+  try {
+    json ammos;
+    json_ammo_file >> ammos;
+
+    size_t nAmmos = ammos.size();
+    config_.nAmmos = nAmmos;
+    ammoTable_ = new dto::Ammo[nAmmos];
 
     for (size_t i = 0; i < nAmmos; ++i) {
       std::strncpy(ammoTable_[i].name, ammos[i]["name"].get<std::string>().c_str(), sizeof(ammoTable_[i].name) - 1);
@@ -110,31 +104,32 @@ auto FileConfigLoader::validate_input() const -> void
       ammoTable_[i].drag = ammos[i]["drag"];
       ammoTable_[i].lift = ammos[i]["lift"];
     }
-    
-    //third, find ammo n the table
+
+    // third, find ammo n the table
     selected_ammo_ = findAmmoByName(ammoTable_, nAmmos, ammo_name);
     return true;
-
-    }
-    catch (const std::exception& error) {
-      std::cerr << "Invalid or incomplete data in " << full_path << '\n';
-      return false;
-    }
-
-    return true;
+  }
+  catch (const std::exception& error) {
+    std::cerr << "Invalid or incomplete data in " << full_path << '\n';
+    return false;
   }
 
-  auto FileConfigLoader::getConfig() const -> const dto::MissionConfig& {
-    return config_;
-  }
+  return true;
+}
 
-  auto FileConfigLoader::getAmmoParams() const -> const dto::Ammo& {
-    return selected_ammo_;
-  }
+auto FileConfigLoader::getConfig() const -> const dto::MissionConfig&
+{
+  return config_;
+}
 
-  FileConfigLoader::~FileConfigLoader() {
-    if (ammoTable_ != nullptr) {
-      delete [] ammoTable_;
-    }
-  }
+auto FileConfigLoader::getAmmoParams() const -> const dto::Ammo&
+{
+  return selected_ammo_;
+}
 
+FileConfigLoader::~FileConfigLoader()
+{
+  if (ammoTable_ != nullptr) {
+    delete[] ammoTable_;
+  }
+}

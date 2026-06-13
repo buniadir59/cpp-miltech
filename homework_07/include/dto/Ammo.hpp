@@ -9,4 +9,4 @@ struct Ammo {
   double lift{};
 };
 
-}  //eo namespace dto
+}  // namespace dto

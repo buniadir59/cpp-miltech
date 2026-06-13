@@ -6,60 +6,61 @@
 #include "solvers/AnalyticalSolver.hpp"
 #include "providers/JsonTargetProvider.hpp"
 #include "config/FileConfigLoader.hpp"
-#include "ManualSimulationClock.hpp"
+#include "config/ManualSimulationClock.hpp"
 #include "dto/MissionConfig.hpp"
 
-
-ISimulationClock* ComponentFactory::createSimulationClock(SimulationClockType type) {
-    switch (type) {
+ISimulationClock* ComponentFactory::createSimulationClock(SimulationClockType type)
+{
+  switch (type) {
     case SimulationClockType::MANUAL:
-        return  new ManualSimulationClock();
+      return new ManualSimulationClock();
 
     default:
-        return nullptr;
-    }  
+      return nullptr;
+  }
 }
 
-
-IBallisticSolver* ComponentFactory::createSolver(SolverType type) {
-    switch (type) {
+IBallisticSolver* ComponentFactory::createSolver(SolverType type)
+{
+  switch (type) {
     case SolverType::ANALYTICAL:
-        return  new AnalyticalSolver();
+      return new AnalyticalSolver();
 
     default:
-        return nullptr;
-    }
+      return nullptr;
+  }
 }
 
-ITargetProvider* ComponentFactory::createProvider(ProviderType type, const char* path) {
-
-    switch (type) {
+ITargetProvider* ComponentFactory::createProvider(ProviderType type, const char* path)
+{
+  switch (type) {
     case ProviderType::JSON:
-        return new JsonTargetProvider(path);
+      return new JsonTargetProvider(path);
 
     default:
-        return nullptr;
-    }
+      return nullptr;
+  }
 }
-    
-IConfigLoader* ComponentFactory::createLoader(LoaderType type) {
-    switch (type) {
+
+IConfigLoader* ComponentFactory::createLoader(LoaderType type)
+{
+  switch (type) {
     case LoaderType::FILE:
-        return new FileConfigLoader(); 
+      return new FileConfigLoader();
 
     default:
-        return nullptr;
-    }
+      return nullptr;
+  }
 }
 
-void ComponentFactory::init(const dto::MissionConfig* mconf, ISimulationClock* simClock, ITargetProvider* tgtProv) {
-    if (simClock == nullptr || tgtProv == nullptr) return;
-    
-    simClock -> reset(mconf->time_step,mconf->tgt_time_step);
+void ComponentFactory::init(const dto::MissionConfig* mconf, ISimulationClock* simClock, ITargetProvider* tgtProv)
+{
+  if (simClock == nullptr || tgtProv == nullptr)
+    return;
 
-    if (typeid(*tgtProv) == typeid(JsonTargetProvider)) {
-        tgtProv -> init(simClock);
-    }
-    
-    
+  simClock->reset(mconf->time_step, mconf->tgt_time_step);
+
+  if (typeid(*tgtProv) == typeid(JsonTargetProvider)) {
+    tgtProv->init(simClock);
+  }
 }

@@ -8,8 +8,8 @@
 
 class IBallisticSolver {
  public:
-  virtual auto solve(const pointmath::Point& drone_position,
-                     const pointmath::Point& target_position,
+
+  virtual auto solve(const pointmath::Point& drone_position,   const pointmath::Point& target_position,
                      double altitude_m, double att_speed, double acc_path,
                      const dto::Ammo& ammo) -> dto::DropSolution = 0;
 

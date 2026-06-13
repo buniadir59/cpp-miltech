@@ -1,7 +1,5 @@
 #pragma once
 
-//#include "dto/Ammo.hpp"
-
 #include <cstddef>
 #include "math/point_math.hpp"
 
@@ -19,7 +17,6 @@ struct MissionConfig {
   double time_step{};
   double tgt_time_step{};
   size_t nAmmos = 0;
-
 };
 
-}
+}  // namespace dto

@@ -8,7 +8,7 @@
 namespace pointmath {
 
 namespace {
-// angle tolerance  
+// angle tolerance
 const double kAngleTolerance = std::atan(0.0003);  // = ( 0.1 * 3 / 1000 );
 }  // namespace
 

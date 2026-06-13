@@ -5,21 +5,21 @@
 
 namespace core {
 
-enum TgtState {ACTIVE, ATTACKED, DESTROYED, UNREACHABLE, UNKNWN }; 
+enum TgtState { ACTIVE, ATTACKED, DESTROYED, UNREACHABLE, UNKNWN };
 
 class TargetControl {  // current information on target available to mission
-  
-public:  
+
+public:
   TgtState state = UNKNWN;
-  double speed{}; //tgt spee d
+  double speed{};  // tgt sp
   dto::Target now{};
 
-  pointmath::Point hitCoord{}; //coordinate of ammo hit the ground
-  double hitTime{};            //time ammo hit the ground
+  pointmath::Point hitCoord{};  // coordinate of ammo hit the ground
+  double hitTime{};             // time ammo hit the ground
 
-  auto update(double tgtTimeStep)-> void;
+  auto update(double tgtTimeStep) -> void;
   auto getAccuracyS(double acc_m) -> double;
-   
+
   auto targetStateToStr() const -> const char*
   {
     switch (state) {
@@ -35,7 +35,7 @@ public:
         return "UNKNOWN_STATE";
     }
   }
-  
-};  // eo TargetState 
 
-}
+};  // eo TargetState
+
+}  // namespace core

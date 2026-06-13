@@ -5,37 +5,32 @@
 #include "interfaces/ISimulationClock.hpp"
 #include "math/point_math.hpp"
 
-// Завантажує таблицю координат цілей з JSON-файлу, 
+// Завантажує таблицю координат цілей з JSON-файлу,
 // повертає ціль(координати і швидкість) згідно з поточним часом симуляції
 class JsonTargetProvider final : public ITargetProvider {
-    const char* const kTgtsFileName = "targets.json";
+  const char* const kTgtsFileName = "targets.json";
 
-    static constexpr size_t kMaxTargetCount = 64; 
-    static constexpr size_t kMaxTargetTimeSteps = 200;
-    
-    size_t tgtCount = 0;        //number of active targets  
-    size_t nOfTgtTimeSteps = 0; //length of pos array
- 
-    pointmath::Point tgtTracks[kMaxTargetCount][kMaxTargetTimeSteps]{};
+  static constexpr size_t kMaxTargetCount = 64;
+  static constexpr size_t kMaxTargetTimeSteps = 200;
 
-    const ISimulationClock* simClock{nullptr};
+  size_t tgtCount = 0;         // number of active targets
+  size_t nOfTgtTimeSteps = 0;  // length of pos array
 
-    auto parseJson(const char* source) -> void;
-    auto makeTarget( const pointmath::Point* track) -> dto::Target;
+  pointmath::Point tgtTracks[kMaxTargetCount][kMaxTargetTimeSteps]{};
+
+  const ISimulationClock* simClock{nullptr};
+
+  auto parseJson(const char* source) -> void;
+  auto makeTarget(const pointmath::Point* track) -> dto::Target;
 
 public:
+  JsonTargetProvider(const char* path) { parseJson(path); }
 
-    JsonTargetProvider(const char* path) 
-    {       
-        parseJson(path);
-    }
-    
- //   ~JsonTargetProvider();
+  //   ~JsonTargetProvider();
 
-    auto getTargetCount() -> int override { return static_cast<int>(tgtCount); }
+  auto getTargetCount() -> int override { return static_cast<int>(tgtCount); }
 
-    auto getTarget(int idx) -> dto::Target override;
+  auto getTarget(int idx) -> dto::Target override;
 
-    auto init(const ISimulationClock* clock) -> void override;
+  auto init(const ISimulationClock* clock) -> void override;
 };
-

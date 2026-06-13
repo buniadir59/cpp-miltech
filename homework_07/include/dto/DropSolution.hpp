@@ -2,8 +2,7 @@
 
 #include "math/point_math.hpp"
 
-
-namespace  dto {
+namespace dto {
 
 struct DropSolution {
   pointmath::Point fire_p{};
@@ -13,4 +12,4 @@ struct DropSolution {
   double horizontal_fall_distance_m = 0.0;
 };
 
-}
+}  // namespace dto

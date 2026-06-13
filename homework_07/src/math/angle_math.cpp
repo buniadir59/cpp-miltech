@@ -19,7 +19,7 @@ auto normalizeAngle(double value) -> double
   return value;
 }
 
- auto operator-(AngleRad a1, const AngleRad& a2) -> AngleRad
+auto operator-(AngleRad a1, const AngleRad& a2) -> AngleRad
 {
   a1 -= a2;
   return a1;

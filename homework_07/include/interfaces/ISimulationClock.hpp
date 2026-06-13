@@ -1,7 +1,7 @@
 #pragma once
 
 class ISimulationClock {
- public:
+public:
   virtual auto nowS() const -> double = 0;
   virtual auto nowForTargetProvider() const -> double = 0;
 

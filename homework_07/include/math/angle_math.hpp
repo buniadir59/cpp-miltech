@@ -42,7 +42,7 @@ struct AngleRad {
     return *this;
   }
 
- auto operator+=(const AngleRad& d) -> AngleRad& 
+  auto operator+=(const AngleRad& d) -> AngleRad&
   {
     value += d.value;
     normalize();
