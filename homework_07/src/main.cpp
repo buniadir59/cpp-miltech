@@ -24,11 +24,10 @@ auto operator<<(std::ostream& os, const dto::SimStatistics& s) -> std::ostream&
 };
 }  // namespace
 
-/* В main() показати:
-1. Створення компонентів через фабрику //TODO
-2. Ініціалізація через init()
-3. Пошагова обробка всіх цілей (цикл while (mission.hasNext()) { mission.step(); })
-4. delete всіх створених об’єктів */
+// Components are created via ComponentFactory.
+// Ownership is handled by std::unique_ptr, so explicit delete is not needed.
+// Ініціалізація через init()
+// Пошагова обробка всіх цілей (цикл while (mission.hasNext()) { mission.step(); })
 
 // ################################################################################
 auto main() -> int
@@ -47,14 +46,14 @@ auto main() -> int
 
   std::cout << std::fixed << std::setprecision(1);
   int result = 1;
-
-  ComponentFactory factory;
-  auto simClock = factory.createSimulationClock(ComponentFactory::SimulationClockType::MANUAL);
-  auto confLoader = factory.createLoader(ComponentFactory::LoaderType::FILE);
-  auto solver = factory.createSolver(ComponentFactory::SolverType::ANALYTICAL);
-  auto tgtProvider = factory.createProvider(ComponentFactory::ProviderType::JSON, defines::kInputPath);
-
+  
   try {
+    ComponentFactory factory;
+    auto simClock = factory.createSimulationClock(ComponentFactory::SimulationClockType::MANUAL);
+    auto confLoader = factory.createLoader(ComponentFactory::LoaderType::FILE);
+    auto solver = factory.createSolver(ComponentFactory::SolverType::ANALYTICAL);
+    auto tgtProvider = factory.createProvider(ComponentFactory::ProviderType::JSON, defines::kInputPath);
+
     if (simClock == nullptr || confLoader == nullptr || solver == nullptr || tgtProvider == nullptr) {
       throw std::runtime_error("One or more components unavailable");
     }
@@ -65,7 +64,6 @@ auto main() -> int
     factory.init(mcnf, simClock.get(), tgtProvider.get());
 
     while (processor.hasNext()) {
-
       if (!processor.step()) {
         LOG("\nStatistics: " << processor.getSimulationStatistics());
         throw std::runtime_error("Simulation time is over!");

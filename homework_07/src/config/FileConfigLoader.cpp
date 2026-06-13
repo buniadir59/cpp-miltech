@@ -95,6 +95,10 @@ auto FileConfigLoader::load(const char* source) -> bool
 
     size_t nAmmos = ammos.size();
     config_.nAmmos = nAmmos;
+
+    delete[] ammoTable_;
+    ammoTable_ = nullptr;
+
     ammoTable_ = new dto::Ammo[nAmmos];
 
     for (size_t i = 0; i < nAmmos; ++i) {
@@ -129,7 +133,5 @@ auto FileConfigLoader::getAmmoParams() const -> const dto::Ammo&
 
 FileConfigLoader::~FileConfigLoader()
 {
-
-    delete[] ammoTable_;
-
+  delete[] ammoTable_;
 }
