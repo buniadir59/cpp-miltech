@@ -3,9 +3,8 @@
 
 namespace core {
 
-auto TargetControl::update() -> void {
-    speed = pointmath::getLength(now.velocity);   
-   // accuracy_s = speed > defines::eps ? std::max(kAccuracy_m / speed, 0.1) : 0.1; 
+auto TargetControl::update(double tgtTimeStep) -> void {
+    speed = pointmath::getLength(now.delta) / tgtTimeStep;   
 }
 
 

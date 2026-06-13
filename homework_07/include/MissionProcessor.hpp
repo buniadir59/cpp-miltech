@@ -1,18 +1,16 @@
 #pragma once
 
-#include "dto/Ammo.hpp"
-//#include "dto/DropSolution.hpp"
-#include "TargetControl.hpp"
-#include "dto/MissionConfig.hpp"
-#include "dto/SimStatistics.hpp"
-#include "DroneControl.hpp"
-#include "Mission.hpp"
-
 #include "interfaces/ITargetProvider.hpp"
 #include "interfaces/IBallisticSolver.hpp"
 #include "interfaces/IConfigLoader.hpp"
 #include "interfaces/ISimulationClock.hpp"
 #include "defines.hpp"
+#include "dto/Ammo.hpp"
+#include "dto/MissionConfig.hpp"
+#include "dto/SimStatistics.hpp"
+#include "TargetControl.hpp"
+#include "DroneControl.hpp"
+#include "Mission.hpp"
 
 #include <optional>
 #include <nlohmann/json.hpp>
@@ -25,9 +23,9 @@ namespace core {
 // manages pool of Targets (updates coordinates and velocity from loader, maintaines adequate state )
 class MissionProcessor {
 
-  ITargetProvider* targets_;      // IBallisticSolver* solver_;   
+  ITargetProvider* targets_;    
   IConfigLoader* loader_;       
-  const ISimulationClock* clock{nullptr};
+  const ISimulationClock* simClock{nullptr};
 
   nlohmann::json j_out;
 
@@ -58,7 +56,7 @@ class MissionProcessor {
 
  public:  
 
-  void init(const char* configSource); //Завантажити конфіг через IConfigLoader, підготувати дані для ітерації
+  auto init(const char* configSource) -> const dto::MissionConfig*; //Завантажити конфіг через IConfigLoader, підготувати дані для ітерації
   auto hasNext() -> bool; //Перевірити, чи є ще необроблені цілі
   void reset()  { currentTgtTag = 0; };  //Почати ітерацію спочатку
   void changeSolver(IBallisticSolver* s) {mission.setSolver(s); }; //Підмінити solver на льоту (Стратегія)
@@ -76,7 +74,7 @@ class MissionProcessor {
                   const ISimulationClock* clock) :
                   targets_(targets),
                   loader_(loader), 
-                  clock(clock),
+                  simClock(clock),
                   mission{solver}
   { };
 

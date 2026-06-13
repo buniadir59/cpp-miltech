@@ -7,7 +7,7 @@ namespace dto {
 
   struct Target {
     pointmath::Point position{};
-    pointmath::Point velocity{};
+    pointmath::Point delta{}; //diff between next and current
   };
 
 }

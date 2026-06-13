@@ -14,18 +14,18 @@ class JsonTargetProvider final : public ITargetProvider {
     static constexpr size_t kMaxTargetTimeSteps = 200;
     
     size_t tgtCount = 0;        //number of active targets  
-    const double tgtTimeStep = 0.0;     //time between tgt steps in the pos array
     size_t nOfTgtTimeSteps = 0; //length of pos array
-    //pointmath::Point** tgtTracks = nullptr; //array of coordinates
+ 
     pointmath::Point tgtTracks[kMaxTargetCount][kMaxTargetTimeSteps]{};
-    const ISimulationClock* clock{nullptr};
+
+    const ISimulationClock* simClock{nullptr};
 
     auto parseJson(const char* source) -> void;
-    auto makeTarget(double currentTimeS, const pointmath::Point* track) -> dto::Target;
+    auto makeTarget( const pointmath::Point* track) -> dto::Target;
 
 public:
-    JsonTargetProvider(const char* path, double tgtTimeStep, const ISimulationClock* clock) 
-        : tgtTimeStep(tgtTimeStep), clock(clock) 
+
+    JsonTargetProvider(const char* path) 
     {       
         parseJson(path);
     }
@@ -35,5 +35,7 @@ public:
     auto getTargetCount() -> int override { return static_cast<int>(tgtCount); }
 
     auto getTarget(int idx) -> dto::Target override;
+
+    auto init(const ISimulationClock* clock) -> void override;
 };
 

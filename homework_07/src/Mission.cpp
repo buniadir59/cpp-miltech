@@ -12,15 +12,34 @@ using AngleRad = anglemath::AngleRad;
 
 namespace core {
 
-auto Mission::init(double time_st, DroneControl* drone_ptr, const dto::Ammo& ammo) -> void {
+auto Mission::init(double time_st, DroneControl* drone_ptr, double tgt_step, const dto::Ammo& ammo) -> void {
   drone = drone_ptr;
   time_step = time_st;
+  tgtTimeStep = tgt_step;
   kAccuracy_m = drone->attSpeed * time_st / 2.0;
   
   dropRoute = solver->solve(drone->coord, tgt_lead_pos, drone->alt, drone->attSpeed, drone->accPath, ammo); // get ballistic solution for the first time to be able to call short version
   ammoFlyTime = dropRoute.fall_time_s;
   ammoHorizDist = dropRoute.horizontal_fall_distance_m;
 }
+
+
+//target is selected (=current target tag)
+//return false, if impossible to reach target
+auto Mission::startNewMission(TargetControl& tgt) -> bool
+{
+  currTgt = &tgt;
+  timer = 0; 
+  missionResultCode = 0;
+
+  return calculateMission(); //@snm
+};
+
+auto Mission::setSolver(IBallisticSolver* s)-> void {
+    solver = s;
+    solveDropRoute(); //to get ammo FF time an dist
+}
+
 
 
 /****
@@ -112,7 +131,7 @@ auto Mission::recalculateFPOntheRoute(dto::Target& target) -> int
   }
 
   if (count == defines::kMaxRecalculations) { //mission impossible 
-    DEBUG("MISSION IMPOSSIBLE! tt_fp=" << tt << " vs timer=" << timer);
+    DEBUG("MISSION IMPOSSIBLE! timer=" << timer);
     currTgt->state = core::UNREACHABLE;
     return 3;
   }
@@ -194,6 +213,10 @@ auto Mission::solveDropRoute() -> void //wrapper for solve
     ammoHorizDist = dropRoute.horizontal_fall_distance_m;
 }
 
+auto Mission::getTargetLeadPosition(const dto::Target& tgt, double deltaT)const -> pointmath::Point {
+  return tgt.position + tgt.delta * (deltaT / tgtTimeStep);
+}
+
 
 auto Mission::recalculateTimeToFP(dto::Target& target) -> double { //used in cycle in recalculate FPOntheRoute
   tgt_lead_pos = getTargetLeadPosition(target, timer + ammoFlyTime);  //@rcfp
@@ -260,8 +283,6 @@ auto Mission::calculateTimeForDropRoute(const pointmath::Point& start) -> double
 auto Mission::calculateMissionDropeRoute(const dto::Target&  target) -> bool
 { 
   constexpr double kMinSpeedRatio = 0.8;
-
- // const double tgtSpeed = pointmath::getLength(target.velocity);    //@cmdr
   const double angleToTarget = pointmath::getAngle(target.position - drone->coord);
   const double projectedTgtSpeed = currTgt->speed * std::cos(angleToTarget);
 
@@ -292,54 +313,11 @@ auto Mission::calculateMissionDropeRoute(const dto::Target&  target) -> bool
   DEBUG("@CMDR@ count=" << count << ' ' << missionStateToStr() 
          << "@ TPos=@" << target.position 
          << "@ Tv=" << currTgt->speed 
-         << "@ ttfp=" << tt_fp << "@ vs tt=" << total_time); 
+         << "@ ttfp=" << total_time); 
 
   return count < defines::kMaxRecalculations;
 }
 
-
-// cosine theorema for Vt*T, hitDist(H) alphT(A) and distDT(D): 
-// distance to hit point: H = ammoHorDist +Vd*(T - ammFT)
-//  sqrT*sqrVt - 2*Vt*T*D*cos(180-A) + sqrD = [Ahd +Vd*(T - Aft)]*[Ahd +Vd*(T - Aft)]
-//                                          = sqrAhd + 2*Ahd*Vd*(T-Aft) + sqrVd(sqrT + sqrAft - 2*Aft*T) 
-//                                          = sqrAhd - 2*Ahd*Vd*Aft + sqrVd*sqrAft   + 2*Ahd*Vd*T- 2*sqrVd*Aft*T + sqrVd*sqrT 
-//                                          = 
-// 0 = (sqrAhd - 2*Ahd*Vd*Aft + sqrVd*sqrAft - sqrDist) + T*2*(Ahd*Vd - sqrVd*Aft + Vt*Dist*cosA) + sqrT*(sqrVd-sqrVt)
-// c = (sqrAhd - 2*Ahd*Vd*Aft + sqrVd*sqrAft - sqrDist)
-// b = 2*(Ahd*Vd - sqrVd*Aft + Vt*Dist*cosA) 
-// halfB = Ahd*Vd + Vt*Dist*cosA - sqrVd*Aft
-// a = (sqrVd-sqrVt)
-// D = sqr(b) - 4ac: => D = 4*(sqrHalfB - a*c)-> check if 4D>= 0, otherwize no catch
-// quarterD = (sqrHalfB - a*c)
-// if D = 0 => T = -halfB/a  NB! a & b should be of different sign
-// T = -halfB/a  +- sqrt(quarterD)/a  
-//    NB! assumed drone moves with attack speed
-//  Return 0.0 if mission impossible  
-auto Mission::calcTimeToFP() -> double   { //based on cosine theorema //TODO not used at the current implementation, option for the future
-  double dist, angleVal;
-  pointmath::trxPointToDistAngle(tgt_lead_pos - drone->coord, dist, angleVal);
-  double Vt = pointmath::getLength(currTgt->now.velocity);
-  double VdByAft = drone->attSpeed * ammoFlyTime;
-  double a = drone->attSpeed * drone->attSpeed - Vt * Vt;
-  double cosAByVt = Vt * std::cos(angleVal);
-  double halfB = drone->attSpeed * (ammoHorizDist - VdByAft) + dist * cosAByVt;
-  double c = ammoHorizDist * (ammoHorizDist - 2 * VdByAft) + VdByAft * VdByAft - dist * dist;
-  double quarterD = halfB * halfB - a * c;
-  if ((quarterD < 0) || (std::abs(a) < defines::eps)) {
-    return 0.0; //mission impossible
-  }
-    
-  double sqrtQD = std::sqrt(quarterD);
-  double t1 = (sqrtQD - halfB) / a;
-  double t2 = -(sqrtQD + halfB) / a;
-  double t = fmax(t1, t2) - ammoFlyTime; // > t2 ? t1 : t2;
-
-  if (cosAByVt >= 10.0) {
-    DEBUG("@cosine theorema* tt="<< t <<" t1=" << t1 << " t2=" << t2 << "  Vt=" << Vt << " vt_proj=@" << cosAByVt);  
-  }
-
-  return t; //returns time for leat targeting
-}
 
 auto Mission::calculateMission() -> bool {
 
@@ -390,7 +368,8 @@ auto Mission::calculateMission() -> bool {
         << "@LP@" << tgt_lead_pos 
          );
     return true;
-
+  }
+} //eo namespace core
 /* 
   //continue, there is interim point 
   anglemath::AngleRad delta_angle_to_dest = angleToInterim - drone->dirRad.value;
@@ -429,25 +408,48 @@ auto Mission::calculateMission() -> bool {
        );
   return true; */
 
-}
-
-//target is selected (=current target tag)
-//return false, if impossible to reach target
-auto Mission::startNewMission(TargetControl& tgt) -> bool
-{
-  currTgt = &tgt;
-  timer = 0; 
-  missionResultCode = 0;
-  return calculateMission(); //@snm
-
-};
 
 
 
+// cosine theorema for Vt*T, hitDist(H) alphT(A) and distDT(D): 
+// distance to hit point: H = ammoHorDist +Vd*(T - ammFT)
+//  sqrT*sqrVt - 2*Vt*T*D*cos(180-A) + sqrD = [Ahd +Vd*(T - Aft)]*[Ahd +Vd*(T - Aft)]
+//                                          = sqrAhd + 2*Ahd*Vd*(T-Aft) + sqrVd(sqrT + sqrAft - 2*Aft*T) 
+//                                          = sqrAhd - 2*Ahd*Vd*Aft + sqrVd*sqrAft   + 2*Ahd*Vd*T- 2*sqrVd*Aft*T + sqrVd*sqrT 
+//                                          = 
+// 0 = (sqrAhd - 2*Ahd*Vd*Aft + sqrVd*sqrAft - sqrDist) + T*2*(Ahd*Vd - sqrVd*Aft + Vt*Dist*cosA) + sqrT*(sqrVd-sqrVt)
+// c = (sqrAhd - 2*Ahd*Vd*Aft + sqrVd*sqrAft - sqrDist)
+// b = 2*(Ahd*Vd - sqrVd*Aft + Vt*Dist*cosA) 
+// halfB = Ahd*Vd + Vt*Dist*cosA - sqrVd*Aft
+// a = (sqrVd-sqrVt)
+// D = sqr(b) - 4ac: => D = 4*(sqrHalfB - a*c)-> check if 4D>= 0, otherwize no catch
+// quarterD = (sqrHalfB - a*c)
+// if D = 0 => T = -halfB/a  NB! a & b should be of different sign
+// T = -halfB/a  +- sqrt(quarterD)/a  
+//    NB! assumed drone moves with attack speed
+//  Return 0.0 if mission impossible  
+/* auto Mission::calcTimeToFP(double tgtTimeStep) -> double   { //based on cosine theorema //TODO not used at the current implementation, option for the future
+  double dist, angleVal;
+  pointmath::trxPointToDistAngle(tgt_lead_pos - drone->coord, dist, angleVal);
+  double Vt = pointmath::getLength(currTgt->now.delta / tgtTimeStep);
+  double VdByAft = drone->attSpeed * ammoFlyTime;
+  double a = drone->attSpeed * drone->attSpeed - Vt * Vt;
+  double cosAByVt = Vt * std::cos(angleVal);
+  double halfB = drone->attSpeed * (ammoHorizDist - VdByAft) + dist * cosAByVt;
+  double c = ammoHorizDist * (ammoHorizDist - 2 * VdByAft) + VdByAft * VdByAft - dist * dist;
+  double quarterD = halfB * halfB - a * c;
+  if ((quarterD < 0) || (std::abs(a) < defines::eps)) {
+    return 0.0; //mission impossible
+  }
+     
+  double sqrtQD = std::sqrt(quarterD);
+  double t1 = (sqrtQD - halfB) / a;
+  double t2 = -(sqrtQD + halfB) / a;
+  double t = fmax(t1, t2) - ammoFlyTime; // > t2 ? t1 : t2;
 
-auto Mission::setSolver(IBallisticSolver* s)-> void {
-    solver = s;
-    solveDropRoute(); //to get ammo FF time an dist
-}
+  if (cosAByVt >= 10.0) {
+    DEBUG("@cosine theorema* tt="<< t <<" t1=" << t1 << " t2=" << t2 << "  Vt=" << Vt << " vt_proj=@" << cosAByVt);  
+  }
 
-} //eo namespace core
+  return t; //returns time for leat targeting
+}*/

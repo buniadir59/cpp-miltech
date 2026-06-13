@@ -20,15 +20,16 @@ class Mission {
 
   TargetControl* currTgt = nullptr;
 
-  double time_step = 0;
-  double time_accuracy = 0.0;
-  double time_total = 0.0;
-  double time_to_interim = 0.0;  // time to reach interim point
- // double accuracy_s{};
+  double tgtTimeStep{0.0}; 
+  double time_step{0.0};
+  double time_accuracy{0.0};
+  double time_total{0.0};
+  double time_to_interim{0.0};  // time to reach interim point
+
   int countMaxRecalc = 0;  // max number of recalculated drop solutions
   int missionResultCode = 0;
-  double kAccuracy_m = 0.0;  // distance to destination to decide it is reached
-  double maxSpeed = 0.0;  // drone max speed to reach interim point
+  double kAccuracy_m{0.0};  // distance to destination to decide it is reached
+  double maxSpeed{0.0};  // drone max speed to reach interim point
   pointmath::Point decelerateAtPoint{0, 0};  // point where to start decceleration to reach interim point
   
   auto calculateMission() -> bool;
@@ -36,11 +37,11 @@ class Mission {
   auto recalculateFPOntheRoute(dto::Target& target) -> int;
   auto recalculateTimeToFP(dto::Target& target) -> double;
   auto calculateTimeForDropRoute(const pointmath::Point& start) -> double;
-  auto calcTimeToFP() -> double; //cosine theorema
+ // auto calcTimeToFP(double tgtTimeStep) -> double; //cosine theorema
   auto calculateMissionDropeRoute(const dto::Target&  target) -> bool;
   
   auto solveDropRoute() -> void;
-  auto getTargetLeadPosition(const dto::Target& tgt, double deltaT)const -> pointmath::Point  {return tgt.position + tgt.velocity * deltaT;}
+  auto getTargetLeadPosition(const dto::Target& tgt, double deltaT)const -> pointmath::Point; //  {return tgt.position + tgt.velocity * deltaT;}
 
 public:
   DroneControl* drone = nullptr;  
@@ -55,7 +56,7 @@ public:
   pointmath::Point tgt_lead_pos{};
   pointmath::Point dropPoint{0, 0};  //=dest point when TO_FIREP, initially target from drop_route
   
-  auto init(double time_step, DroneControl* drone, const dto::Ammo& ammo) -> void;
+  auto init(double time_step, DroneControl* drone, double tgt_step, const dto::Ammo& ammo) -> void;
 
   auto isOnMission() const -> bool { return state != core::NONE; };
   auto startNewMission(TargetControl& tgt) -> bool; 

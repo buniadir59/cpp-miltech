@@ -1,18 +1,17 @@
 
 #include "dto/MissionConfig.hpp"
 #include "dto/SimStatistics.hpp"
-#include "config/FileConfigLoader.hpp"
-#include "providers/JsonTargetProvider.hpp"
-#include "ManualSimulationClock.hpp"
+#include "config/ComponentFactory.hpp"
 #include "MissionProcessor.hpp"
-#include "solvers/AnalyticalSolver.hpp"
 #include "defines.hpp"
+
 
 #include <exception>
 #include <iomanip>
 #include <iostream>
 #include <cmath>
 #include <cstring>
+#include <stdexcept>
 
 #ifdef TESTOUT_TO_FILE
 #include <fstream>
@@ -24,7 +23,7 @@ namespace {
             << "\nFrom them: \n\tactive:" << s.active 
             << "\n\tunder attack:" << s.underAttack 
             << "\n\tdestroyed:" << s.destroyed 
-            << "\nTime elapsed, sec:" << s.timeElapsed;
+            << "\nsteps taken:" << s.stepsTaken;
         };
 }
 
@@ -52,18 +51,25 @@ auto main() -> int
   std::cout << std::fixed << std::setprecision(1);
   int result = 1;
 
+  ComponentFactory factory;
+  auto* simClock = factory.createSimulationClock(ComponentFactory::SimulationClockType::MANUAL);
+  auto* confLoader = factory.createLoader(ComponentFactory::LoaderType::FILE);
+  auto* solver = factory.createSolver(ComponentFactory::SolverType::ANALYTICAL);
+  auto* tgtProvider = factory.createProvider(ComponentFactory::ProviderType::JSON, defines::kInputPath);
+  
   try {
-    
-    FileConfigLoader confLoader;
-    ManualSimulationClock simClock;
-    JsonTargetProvider tgtProvider(defines::kInputPath, 5.0, &simClock);
-    AnalyticalSolver solver;
-    core::MissionProcessor processor(&tgtProvider, &solver, &confLoader, &simClock);
+  
+    if (simClock == nullptr || confLoader == nullptr || solver == nullptr ||tgtProvider == nullptr) {
+      throw std::runtime_error("One or more components unavailable");
+    }
 
-    processor.init(defines::kInputPath);
+    core::MissionProcessor processor(tgtProvider, solver, confLoader, simClock);
+
+    const dto::MissionConfig* mcnf = processor.init(defines::kInputPath);
+    factory.init(mcnf, simClock, tgtProvider);
 
     while (processor.hasNext()) { 
-      simClock.advance(processor.mconf->time_step);  
+      simClock->advance();  
     
       if (!processor.step()) {
         LOG("\nStatistics: " << processor.getSimulationStatistics());

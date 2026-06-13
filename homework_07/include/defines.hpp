@@ -4,7 +4,7 @@
 /* **** defines and contants **** */
 
 #define ENABLE_LOG 1
-#define ENABLE_DEBUG 0
+#define ENABLE_DEBUG 1
 
 #if ENABLE_LOG
 #define LOG(msg) std::cout << "[LOG] " << msg << std::endl;
@@ -20,7 +20,7 @@
 
 #define START_FROM_TGT 3
 #define DEBUG_FILE_NAME "debug_07.txt"
-//#define TESTOUT_TO_FILE
+#define TESTOUT_TO_FILE
 
 namespace  defines {
 

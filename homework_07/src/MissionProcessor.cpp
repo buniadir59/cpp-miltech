@@ -1,18 +1,17 @@
+#include "MissionProcessor.hpp"
 #include "defines.hpp"
+#include "dto/MissionConfig.hpp"
 #include "dto/SimStatistics.hpp"
 #include "dto/Target.hpp"
 #include "TargetControl.hpp"
-#include "MissionProcessor.hpp"
 #include "DroneControl.hpp"
-//#include "interfaces/IBallisticSolver.hpp"
 #include "interfaces/ITargetProvider.hpp"
 #include "interfaces/IConfigLoader.hpp"
 #include "math/angle_math.hpp"
 #include "math/point_math.hpp"
 
-#include <cmath>
 #include <nlohmann/json.hpp>
-
+#include <cmath>
 #include <stdexcept>
 #include <fstream>
 #include <optional>
@@ -24,7 +23,7 @@ using AngleRad = anglemath::AngleRad;
 
 namespace core {
 
-auto MissionProcessor::init(const char* configSource) -> void {
+auto MissionProcessor::init(const char* configSource) -> const dto::MissionConfig* {
     if (!loader_->load(configSource)) {
       throw std::runtime_error("Error loading configuration");
     };
@@ -35,7 +34,7 @@ auto MissionProcessor::init(const char* configSource) -> void {
     ammo = loader_->getAmmoParams();
 
     drone.emplace(*mconf);
-    mission.init(mconf->time_step, &*drone, ammo);
+    mission.init(mconf->time_step, &*drone, mconf->tgt_time_step, ammo);
    
     target_count_ = targets_->getTargetCount();
 
@@ -45,23 +44,12 @@ auto MissionProcessor::init(const char* configSource) -> void {
 
   currentTgtTag = 0;
   stepCurrent = 0;
-
-  updateTargets();
-
-  pushStepToJSON();
-
-/*     int count = START_FROM_TGT;
-    while (mission.startNewMission(targetDepo[START_FROM_TGT]) == false) {  //@init
-      if (++count > target_count_) {
-        throw std::runtime_error("ERR: no possible missions found");
-      }
-    };    //@init 
-
-    pushStepToJSON(); // save step 0 data*/
+//  updateTargets(); pushStepToJSON();
+  return &*mconf;
 }
 
 auto MissionProcessor::checkFireResult(TargetControl& tgt) -> bool {
-  if (std::abs(clock->nowS() - tgt.hitTime) <= mconf->time_step / 2.0) {
+  if (std::abs(simClock->nowS() - tgt.hitTime) <= mconf->time_step / 2.0) {
     double dist = pointmath::getLength(tgt.now.position - tgt.hitCoord);
     LOG("@ Hit at dist=" << dist << "@ hit_time=" << tgt.hitTime);
     if (dist <= mconf->hit_rad) {
@@ -96,7 +84,7 @@ auto MissionProcessor::getSimulationStatistics() -> dto::SimStatistics& {
     stats.destroyed = countDestrd;
     stats.underAttack = countUnderAtt;
     stats.total = countAct + countUnderAtt + countDestrd;
-    stats.timeElapsed =clock->nowS();
+    stats.stepsTaken = stepCurrent;
    }
    return stats;
 }
@@ -107,7 +95,7 @@ auto MissionProcessor::updateTargets() -> void {
       if (targetDepo[i].state == DESTROYED) continue;
 
       targetDepo[i].now = targets_->getTarget(i); 
-      targetDepo[i].update(); 
+      targetDepo[i].update(mconf->tgt_time_step); 
 
       switch (targetDepo[i].state) {
         case ACTIVE:
@@ -115,10 +103,10 @@ auto MissionProcessor::updateTargets() -> void {
 
         case ATTACKED:
           if (checkFireResult(targetDepo[i])) {
-            LOG(stepCurrent << "@ T#" << i << "@ time=" << clock->nowS()
+            LOG(stepCurrent << "@ T#" << i << "@ time=" << simClock->nowS()
                   << "@ Result of attack=" << targetDepo[i].targetStateToStr()
                  << "@ TPos@" << targetDepo[i].now.position
-                << "@ TV@" << targetDepo[i].now.velocity
+              //  << "@ TV@" << targetDepo[i].now.velo city
                 << "@ TSpeed=" << targetDepo[i].speed                 
           );
           }
@@ -140,7 +128,7 @@ auto MissionProcessor::updateTargets() -> void {
 // 3. Збільшити лічильник, повернути результат
 //return false if #steps > max
 bool MissionProcessor::step() {
-    ++stepCurrent;
+//    ++stepCurrent;
      
     if (stepCurrent > defines::kMaxSteps) {  // simulation is over!
       return false;   
@@ -148,7 +136,7 @@ bool MissionProcessor::step() {
 
     updateTargets(); //unreachable => active
 
-    drone->move(mconf->time_step);  
+  //  drone->move(mconf->time_step);  
 
     if (mission.isOnMission()) {
         // analyze dron position on the drop path and change its state accordingly
@@ -163,7 +151,6 @@ bool MissionProcessor::step() {
         if (currentTgtTag >= 0) { //active target found @step
             DEBUG(stepCurrent << "@Try@ T#" << currentTgtTag << ' ' << targetDepo[currentTgtTag].targetStateToStr()
                 << "@ TPos@" << targetDepo[currentTgtTag].now.position
-                << "@ TV@" << targetDepo[currentTgtTag].now.velocity
                 << "@ TSpeed=" << targetDepo[currentTgtTag].speed
                 << "@ dist=" << pointmath::getLength(targetDepo[currentTgtTag].now.position - drone->coord)
                 << "@ angle=" << pointmath::getAngle(targetDepo[currentTgtTag].now.position - drone->coord)
@@ -186,7 +173,6 @@ bool MissionProcessor::step() {
         << "@ Dr@" << drone->coord 
         << "@ Dir" << drone->dirRad << "@v=" << drone->speed 
         << "@ TPos@" << targetDepo[currentTgtTag].now.position
-        << "@ TV@" << targetDepo[currentTgtTag].now.velocity
         << "@ Tv=" << targetDepo[currentTgtTag].speed
         << "@ tmr=" << mission.timer
         );
@@ -197,6 +183,8 @@ bool MissionProcessor::step() {
         );
     }
 
+    ++stepCurrent;
+    drone->move(mconf->time_step);  
     return true;
 }
 /* 
@@ -306,7 +294,7 @@ auto MissionProcessor::pushStepToJSON() -> void
 auto MissionProcessor::fire() -> void {
       targetDepo[currentTgtTag].state = core::ATTACKED;     
       targetDepo[currentTgtTag].hitCoord = drone->getAimPoint(mission.ammoHorizDist); 
-      targetDepo[currentTgtTag].hitTime = clock->nowS() + mission.ammoFlyTime; 
+      targetDepo[currentTgtTag].hitTime = simClock->nowS() + mission.ammoFlyTime; 
       LOG(stepCurrent<<"@Fired! T#"<< currentTgtTag <<"@ hittime=" << targetDepo[currentTgtTag].hitTime << "@hitCoord@" << targetDepo[currentTgtTag].hitCoord );
 }
 

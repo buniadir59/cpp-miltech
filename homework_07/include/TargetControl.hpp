@@ -17,7 +17,7 @@ public:
   pointmath::Point hitCoord{}; //coordinate of ammo hit the ground
   double hitTime{};            //time ammo hit the ground
 
-  auto update()-> void;
+  auto update(double tgtTimeStep)-> void;
   auto getAccuracyS(double acc_m) -> double;
    
   auto targetStateToStr() const -> const char*

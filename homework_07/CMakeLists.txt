@@ -15,6 +15,7 @@ add_library( hw7_core src/math/point_math.cpp src/math/angle_math.cpp
              src/DroneControl.cpp
              src/Mission.cpp
              src/TargetControl.cpp
+             src/config/ComponentFactory.cpp
 )
 
 target_include_directories(hw7_core

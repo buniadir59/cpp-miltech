@@ -3,12 +3,8 @@
 #include "interfaces/IBallisticSolver.hpp"
 #include "interfaces/ITargetProvider.hpp"
 #include "interfaces/IConfigLoader.hpp"
-#include "solvers/AnalyticalSolver.hpp"
-#include "providers/JsonTargetProvider.hpp"
-#include "config/FileConfigLoader.hpp"
-
-
-#include <memory>
+#include "interfaces/ISimulationClock.hpp"
+#include "dto/MissionConfig.hpp"
 
 
 class ComponentFactory {
@@ -17,10 +13,14 @@ public:
     enum class SolverType { ANALYTICAL };
     enum class ProviderType { JSON };
     enum class LoaderType { FILE };
+    enum class SimulationClockType {MANUAL};
 
     IBallisticSolver* createSolver(SolverType type);
-    ITargetProvider* createProvider(ProviderType type, const char* param);
+    ITargetProvider* createProvider(ProviderType type, const char* path);
     IConfigLoader* createLoader(LoaderType type);
+    ISimulationClock* createSimulationClock(SimulationClockType type);
 
-    ~ComponentFactory();
+    void init(const dto::MissionConfig* mconf, ISimulationClock* simClock, ITargetProvider* tgtProv);
+
+   // ~ComponentFactory();
 };

@@ -15,42 +15,42 @@
 using json = nlohmann::json;
 using Point = pointmath::Point;
 
-namespace {
 
-} //eo namespace
-
-
-auto JsonTargetProvider::makeTarget(double currentTimeS,
-                                    const pointmath::Point* track) -> dto::Target {
-  const double cycle_time = tgtTimeStep * static_cast<double>(nOfTgtTimeSteps);
-  const double time_in_cycle = std::fmod(currentTimeS, cycle_time);
-
-  const auto idx = static_cast<std::size_t>(std::floor(time_in_cycle / tgtTimeStep));
-  const std::size_t next_idx = (idx + 1) % nOfTgtTimeSteps;
-
-  const double local_time = time_in_cycle - static_cast<double>(idx) * tgtTimeStep;
-
-  const pointmath::Point velocity = (track[next_idx] - track[idx]) / tgtTimeStep;
-
-  return dto::Target{
-      .position = track[idx] + velocity * local_time,
-      .velocity = velocity,
-  };
-}
-
-
-auto JsonTargetProvider::getTarget(int idx) -> dto::Target {
-  if (clock == nullptr) {
+auto JsonTargetProvider::makeTarget(const pointmath::Point* track) -> dto::Target {
+  if (simClock == nullptr) {
     throw std::runtime_error("Clock is not available");
   }
 
+  const double tgtTime = simClock->nowForTargetProvider();
+  const double tgtTimeFloor = std::floor(tgtTime);
+  //const double cycle_time = tgtTimeStep * static_cast<double>(nOfTgtTimeSteps);
+  //const double time_in_cycle = std::fmod(currentTimeS, cycle_time);
+
+  const auto idx = (static_cast<std::size_t>(tgtTimeFloor)) % nOfTgtTimeSteps;
+  const std::size_t next_idx = (idx + 1) % nOfTgtTimeSteps;
+
+  const double d_time = tgtTime - tgtTimeFloor;
+
+  const pointmath::Point delta = (track[next_idx] - track[idx]);// / tgtTimeStep;
+
+  return dto::Target{
+      .position = track[idx] + delta * d_time,
+      .delta = delta,
+  };
+}
+
+ auto JsonTargetProvider::init(const ISimulationClock* clock) -> void 
+  { 
+    simClock = clock; 
+  }
+
+auto JsonTargetProvider::getTarget(int idx) -> dto::Target {
+  
   if (idx < 0 || static_cast<std::size_t>(idx) >= tgtCount) {
     throw std::runtime_error("Invalid target index");
   }
 
-  const double currentTimeS = clock->nowS();
-
-  return makeTarget(currentTimeS, tgtTracks[idx]);
+  return makeTarget(tgtTracks[idx]);
 }
 
 
@@ -82,18 +82,8 @@ auto JsonTargetProvider::parseJson(const char* source) -> void {
         tgtTracks[i][j].y = tgts_j["targets"][i]["positions"][j]["y"];
       }
     }
-/*     auto coords = new Point*[tgtCount]; 
-      for (size_t i = 0; i < tgtCount; ++i) {
-      coords[i] = new Point[nOfTgtTimeSteps];
-
-      for (size_t j = 0; j < nOfTgtTimeSteps; ++j) {
-        coords[i][j].x = tgts_j["targets"][i]["positions"][j]["x"];
-        coords[i][j].y = tgts_j["targets"][i]["positions"][j]["y"];
-      }
-    }
-
-    tgtTracks = coords; */
   }
+
   catch (const std::exception& error) {
     throw std::runtime_error("Error loading targets");
   }

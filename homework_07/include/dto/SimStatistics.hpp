@@ -7,7 +7,7 @@ namespace dto {
         int active = 0;
         int underAttack = 0;
         int destroyed = 0;  
-        double timeElapsed = 0.0; 
+        int stepsTaken = 0; 
         
     };
 
