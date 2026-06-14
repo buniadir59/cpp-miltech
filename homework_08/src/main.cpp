@@ -1,9 +1,7 @@
-
-#include "dto/MissionConfig.hpp"
 #include "dto/SimStatistics.hpp"
 #include "config/ComponentFactory.hpp"
-#include "MissionProcessor.hpp"
 #include "config/defines.hpp"
+#include "core/MissionProcessor.hpp"
 
 #include <exception>
 #include <iomanip>
@@ -15,6 +13,10 @@
 #ifdef TESTOUT_TO_FILE
 #include <fstream>
 #endif
+
+namespace dto {
+  struct MissionConfig;
+}
 
 namespace {
 auto operator<<(std::ostream& os, const dto::SimStatistics& s) -> std::ostream&

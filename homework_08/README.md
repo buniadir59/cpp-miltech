@@ -2,37 +2,31 @@
 
 ## Постановка задачі
 
-   Рефакторинг коду з ДЗ3 і рефакторити його з монолітного main() в набір класів з чіткими інтерфейсами
+   Рефакторинг коду з ДЗ7:  Правильно структурувати проект та замінити C-стиль конструкції на STL-контейнери всюди, де це має сенс. 
+
 
 ## **Що змінюється:**
 
-   1. Створені абстрактні класи (інтерфейси) для кожного компонента системи:
-      * ITargetProvider: getTargetCount(); getTarget(int idx). Це Провайдер цілей => кількість та дані кожної цілі (позиція, швидкість)
-      * IBallisticSolver: solve(dronePos, targetPos, altitude, ammo). Калькулятор балістики => обчислює точку скиду
-      * IConfigLoader: load(source); getConfig(); getAmmoParams(). Завантажувач даних => конфіг місії та параметри боєприпасу
-      * ISimulationClock: nowS(); nowForTargetProvider(); advance(); reset(double simTimeStep, double tgtTimeStep). Provides 
-         source of time for MissionController and JsonTargetProvider
-   Кожен інтерфейс — це клас з pure virtual методами (= 0) і virtual деструктором.
-   2. Для кожного інтерфейсу написана реалізацію:
-      * ITargetProvider => JsonTargetProvider => Завантажує цілі з JSON-файлу
-      * BallisticSolver => AnalyticalSolver => Аналітичне рішення (формула з ДЗ1)
-      * IConfigLoader => FileConfigLoader => Читає конфіг
-      * ManualSimulationClock => provides for adequate moving within the Target simulation data for Json target provider
-   3. Додана фабрика, яка створює потрібну реалізацію за типом: createSolver, createProvider, createLoader; createSimulationClock
-   4. Створений клас MissionProcessor, який приймає компоненти через вказівники на інтерфейси (патерн Стратегія).
-   5. main() виконує: Створення компонентів, їх ініціалізацію, пошагову обробку всіх цілей, видалення створених об'єктів.
+   1. Структура проекту загалом була створена в ДЗ-7 і приведена нижче
+   2. Виконана заміна на STL-контейнери
+      * array of targets under control (targetDepo) is replaced by vector 
+      * array tgtTracks replaced by vector
+      * array of Ammos replaced by vector
+      * standard algorithm count_if() was used to create simulation statictics 
+
 
 ## Структура репо
 
 ```
 homework_07/        
 ├── external/nlohmann
-| | └── json.hpp   
-├── include/               ## declarations of classes, interfaces structures 
-│ ├── MissionProcessor.hpp
-│ ├── Mission.hpp
-│ ├── DroneControl.hpp
-│ ├── TargetControl.hpp
+|  └── json.hpp   
+├── include/                  ## declarations of classes, interfaces structures 
+│ ├── core
+│ | ├── MissionProcessor.hpp
+│ | ├── Mission.hpp
+│ | ├── DroneControl.hpp
+│ | └── TargetControl.hpp
 │ ├── math/
 │ │ ├── angle_math.hpp
 │ │ └── point_math.hpp
@@ -57,12 +51,13 @@ homework_07/
 │   ├── ManualSimulationClock.hpp
 │   ├── FileConfigLoader.hpp
 │   └── ComponentFactory.hpp
-├── src/                   ## implementation of methods
+├── src/                      ## implementation of methods
 │ ├── main.cpp
-│ ├── MissionProcessor.cpp
-│ ├── Mission.cpp
-│ ├── DroneControl.cpp
-│ ├── TargetControl.cpp
+│ ├── core
+│ │ ├── MissionProcessor.cpp
+│ │ ├── Mission.cpp
+│ │ ├── DroneControl.cpp
+│ │ └── TargetControl.cpp
 │ ├── math/
 │ │ ├── angle_math.cpp
 │ │ └── point_math.cpp

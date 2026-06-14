@@ -13,10 +13,10 @@ add_library(
     src/providers/JsonTargetProvider.cpp
     src/solvers/AnalyticalSolver.cpp
     src/config/FileConfigLoader.cpp
-    src/MissionProcessor.cpp
-    src/DroneControl.cpp
-    src/Mission.cpp
-    src/TargetControl.cpp
+    src/core/MissionProcessor.cpp
+    src/core/DroneControl.cpp
+    src/core/Mission.cpp
+    src/core/TargetControl.cpp
     src/config/ComponentFactory.cpp)
 
 target_include_directories(

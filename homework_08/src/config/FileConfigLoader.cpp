@@ -6,6 +6,8 @@
 #include <filesystem>
 #include <fstream>
 #include <exception>
+#include <string>
+#include <unordered_map>
 
 using json = nlohmann::json;
 
@@ -13,16 +15,6 @@ namespace {
 const char* const kAmmosFileName = "ammo.json";
 const char* const kInputFileName = "config.json";
 
-auto findAmmoByName(const dto::Ammo ammo_table[], std::size_t ammo_count, const char ammo_name[]) -> const dto::Ammo&
-{
-  for (std::size_t i = 0; i < ammo_count; ++i) {
-    if (std::strcmp(ammo_table[i].name, ammo_name) == 0) {
-      return ammo_table[i];
-    }
-  }
-
-  throw std::runtime_error("Object not found");
-}
 }  // namespace
 
 auto FileConfigLoader::validate_input() const -> void
@@ -51,7 +43,7 @@ auto FileConfigLoader::load(const char* source) -> bool
     return false;
   }
 
-  char ammo_name[32];
+  std::string ammo_name;
 
   try {
     json jsn;
@@ -70,8 +62,7 @@ auto FileConfigLoader::load(const char* source) -> bool
 
     config_.tgt_time_step = jsn["targetArrayTimeStep"];
 
-    std::strncpy(ammo_name, jsn["ammo"].get<std::string>().c_str(), sizeof(ammo_name) - 1);
-    ammo_name[sizeof(ammo_name) - 1] = '\0';
+    ammo_name = jsn["ammo"].get<std::string>();
 
     validate_input();
   }
@@ -96,42 +87,32 @@ auto FileConfigLoader::load(const char* source) -> bool
     size_t nAmmos = ammos.size();
     config_.nAmmos = nAmmos;
 
-    delete[] ammoTable_;
-    ammoTable_ = nullptr;
+    std::unordered_map<std::string, dto::Ammo> ammoTable_;
+    for (const auto& ammo_json : ammos) {
+      dto::Ammo ammo{
+        .name = ammo_json["name"].get<std::string>(),
+        .mass = ammo_json["mass"],
+        .drag = ammo_json["drag"],
+        .lift = ammo_json["lift"],
+      };
 
-    ammoTable_ = new dto::Ammo[nAmmos];
-
-    for (size_t i = 0; i < nAmmos; ++i) {
-      std::strncpy(ammoTable_[i].name, ammos[i]["name"].get<std::string>().c_str(), sizeof(ammoTable_[i].name) - 1);
-      ammoTable_[i].name[sizeof(ammoTable_[i].name) - 1] = '\0';
-      ammoTable_[i].mass = ammos[i]["mass"];
-      ammoTable_[i].drag = ammos[i]["drag"];
-      ammoTable_[i].lift = ammos[i]["lift"];
+      ammoTable_.emplace(ammo.name, ammo);
     }
 
-    // third, find ammo n the table
-    selected_ammo_ = findAmmoByName(ammoTable_, nAmmos, ammo_name);
+    const auto it = ammoTable_.find(ammo_name);
+    if (it == ammoTable_.end()) {
+      throw std::runtime_error("Ammo not found");
+    }
+
+    selected_ammo_ = it->second;
+
     return true;
   }
+
   catch (const std::exception& error) {
     std::cerr << "Invalid or incomplete data in " << full_path << '\n';
     return false;
   }
 
   return true;
-}
-
-auto FileConfigLoader::getConfig() const -> const dto::MissionConfig&
-{
-  return config_;
-}
-
-auto FileConfigLoader::getAmmoParams() const -> const dto::Ammo&
-{
-  return selected_ammo_;
-}
-
-FileConfigLoader::~FileConfigLoader()
-{
-  delete[] ammoTable_;
 }

@@ -1,9 +1,10 @@
 #pragma once
+#include <string>
 
 namespace dto {
 
 struct Ammo {
-  char name[32]{};
+  std::string name;
   double mass{};
   double drag{};
   double lift{};
