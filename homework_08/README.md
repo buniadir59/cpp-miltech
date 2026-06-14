@@ -1,8 +1,8 @@
-# C++ для військових технологій: ДЗ#7
+# C++ для військових технологій: ДЗ#8
 
 ## Постановка задачі
 
-   Рефакторинг коду з ДЗ7:  Правильно структурувати проект та замінити C-стиль конструкції на STL-контейнери всюди, де це має сенс. 
+   Рефакторинг коду з ДЗ8:  Правильно структурувати проект та замінити C-стиль конструкції на STL-контейнери всюди, де це має сенс. 
 
 
 ## **Що змінюється:**
@@ -11,14 +11,14 @@
    2. Виконана заміна на STL-контейнери
       * array of targets under control (targetDepo) is replaced by vector 
       * array tgtTracks replaced by vector
-      * array of Ammos replaced by vector
+      * array of ammos replaced by std::unordered_map<std::string, Ammo>
       * standard algorithm count_if() was used to create simulation statictics 
 
 
 ## Структура репо
 
 ```
-homework_07/        
+homework_08/        
 ├── external/nlohmann
 |  └── json.hpp   
 ├── include/                  ## declarations of classes, interfaces structures 
@@ -32,7 +32,7 @@ homework_07/
 │ │ └── point_math.hpp
 │ ├── dto
 │ | ├── Ammo.hpp
-│ | ├── BallisticInput.hpp
+│ | ├── BallisticsіInput.hpp
 │ | ├── DropSolution.hpp
 │ | ├── MissionConfig.hpp
 │ | ├── SimStatistics.hpp

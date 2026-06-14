@@ -32,7 +32,7 @@ auto FileConfigLoader::validate_input() const -> void
   }
 }
 
-auto FileConfigLoader::load(const char* source) -> bool
+auto FileConfigLoader::load(const std::string& source) -> bool
 {
   // first, read input.json
   std::filesystem::path full_path = std::filesystem::path(source) / kInputFileName;

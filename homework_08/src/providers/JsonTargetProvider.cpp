@@ -48,7 +48,7 @@ auto JsonTargetProvider::getTarget(int idx) -> dto::Target
   return makeTarget(tgtTracks.at(static_cast<std::size_t>(idx)));
 }
 
-auto JsonTargetProvider::parseJson(const char* source) -> void
+auto JsonTargetProvider::parseJson(const std::string&  source) -> void
 {
   {
     std::filesystem::path full_path = std::filesystem::path(source) / kTgtsFileName;

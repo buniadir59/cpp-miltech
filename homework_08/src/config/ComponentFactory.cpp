@@ -10,6 +10,7 @@
 #include "dto/MissionConfig.hpp"
 
 #include <memory>
+#include <string>
 
 std::unique_ptr<ISimulationClock> ComponentFactory::createSimulationClock(SimulationClockType type)
 {
@@ -33,7 +34,7 @@ std::unique_ptr<IBallisticSolver> ComponentFactory::createSolver(SolverType type
   }
 }
 
-std::unique_ptr<ITargetProvider> ComponentFactory::createProvider(ProviderType type, const char* path)
+std::unique_ptr<ITargetProvider> ComponentFactory::createProvider(ProviderType type, const std::string& path)
 {
   switch (type) {
     case ProviderType::JSON:

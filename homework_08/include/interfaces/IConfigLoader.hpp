@@ -3,11 +3,13 @@
 #include "dto/Ammo.hpp"
 #include "dto/MissionConfig.hpp"
 
+#include <string>
+
 // Завантажувач даних: конфіг місії та параметри боєприпасу
 
 class IConfigLoader {
 public:
-  virtual auto load(const char* source) -> bool = 0;
+  virtual auto load(const std::string& source) -> bool = 0;
   [[nodiscard]] virtual auto getConfig() const -> const dto::MissionConfig& = 0;
   [[nodiscard]] virtual auto getAmmoParams() const -> const dto::Ammo& = 0;
 

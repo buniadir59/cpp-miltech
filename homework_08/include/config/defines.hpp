@@ -1,6 +1,8 @@
 #pragma once
 
 #include <limits>
+#include <string>
+
 /* **** defines and contants **** */
 
 // #define TESTOUT_TO_FILE
@@ -23,7 +25,7 @@
 
 namespace defines {
 
-const char* const kInputPath = "homework_08/data";
+const std::string kInputPath = "homework_08/data";
 const char* const kSimulationPath = "simulation.json";
 
 // ## max number of simulation steps if any target not hit

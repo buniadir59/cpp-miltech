@@ -6,6 +6,7 @@
 #include "math/point_math.hpp"
 
 #include <vector>
+#include <string>
 
 // Завантажує таблицю координат цілей з JSON-файлу,
 // повертає ціль(координати і швидкість) згідно з поточним часом симуляції
@@ -21,13 +22,11 @@ class JsonTargetProvider final : public ITargetProvider {
   std::vector<std::vector<pointmath::Point>> tgtTracks;
   const ISimulationClock* simClock{nullptr};
 
-  auto parseJson(const char* source) -> void;
+  auto parseJson(const std::string& source) -> void;
   auto makeTarget(const std::vector<pointmath::Point>& track) -> dto::Target;
 
 public:
-  JsonTargetProvider(const char* path) { parseJson(path); }
-
-  //   ~JsonTargetProvider();
+  JsonTargetProvider(const std::string& path) { parseJson(path); }
 
   auto getTargetCount() -> int override { return static_cast<int>(tgtCount); }
 

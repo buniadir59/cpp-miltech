@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <cstdint>
+#include <string>
 
 namespace dto {
 
@@ -22,7 +23,7 @@ public:
   enum class SimulationClockType : std::uint8_t { MANUAL };
 
   std::unique_ptr<IBallisticSolver> createSolver(SolverType type);
-  std::unique_ptr<ITargetProvider> createProvider(ProviderType type, const char* path);
+  std::unique_ptr<ITargetProvider> createProvider(ProviderType type, const std::string& path);
   std::unique_ptr<IConfigLoader> createLoader(LoaderType type);
   std::unique_ptr<ISimulationClock> createSimulationClock(SimulationClockType type);
 
