@@ -7,8 +7,11 @@
 
 ## **Що змінюється:**
 
-   1.
-   2.
+   1. Implemented smart pointers - change ownership
+   2. Updated ammo parameters
+   3. TODO Added new IBallisticSolver implementation class - TableSolver
+   4. TODO Implemeted Drone State Automate
+
 
 
 ## Структура репо

@@ -21,11 +21,11 @@
 #define DEBUG(msg)
 #endif
 
-#define DEBUG_FILE_NAME "debug_08.txt"
+#define DEBUG_FILE_NAME "debug_09.txt"
 
 namespace defines {
 
-const std::string kInputPath = "homework_08/data";
+const std::string kInputPath = "homework_09/data";
 const char* const kSimulationPath = "simulation.json";
 
 // ## max number of simulation steps if any target not hit
