@@ -9,12 +9,6 @@
 #include <cstdint>
 #include <string>
 
-namespace dto {
-
-struct MissionConfig;
-
-}
-
 class ComponentFactory {
 public:
   enum class SolverType : std::uint8_t { ANALYTICAL };
@@ -26,6 +20,4 @@ public:
   std::unique_ptr<ITargetProvider> createProvider(ProviderType type, const std::string& path);
   std::unique_ptr<IConfigLoader> createLoader(LoaderType type);
   std::unique_ptr<ISimulationClock> createSimulationClock(SimulationClockType type);
-
-  void init(const dto::MissionConfig* mconf, ISimulationClock* simClock, ITargetProvider* tgtProv);
 };

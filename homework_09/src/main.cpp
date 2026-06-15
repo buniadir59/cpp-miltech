@@ -60,17 +60,16 @@ auto main() -> int
       throw std::runtime_error("One or more components unavailable");
     }
 
-    core::MissionProcessor processor(tgtProvider.get(), solver.get(), confLoader.get(), simClock.get());
+    core::MissionProcessor processor(std::move(tgtProvider), std::move(solver), 
+    std::move(confLoader), std::move(simClock));
 
-    const dto::MissionConfig* mcnf = processor.init(defines::kInputPath);
-    factory.init(mcnf, simClock.get(), tgtProvider.get());
+    processor.init(defines::kInputPath);
 
     while (processor.hasNext()) {
       if (!processor.step()) {
         LOG("\nStatistics: " << processor.getSimulationStatistics());
         throw std::runtime_error("Simulation time is over!");
       };
-      simClock->advance();
     }
 
     result = 0;

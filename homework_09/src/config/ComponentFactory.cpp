@@ -7,7 +7,6 @@
 #include "providers/JsonTargetProvider.hpp"
 #include "config/FileConfigLoader.hpp"
 #include "config/ManualSimulationClock.hpp"
-#include "dto/MissionConfig.hpp"
 
 #include <memory>
 #include <string>
@@ -53,17 +52,5 @@ std::unique_ptr<IConfigLoader> ComponentFactory::createLoader(LoaderType type)
 
     default:
       return nullptr;
-  }
-}
-
-void ComponentFactory::init(const dto::MissionConfig* mconf, ISimulationClock* simClock, ITargetProvider* tgtProv)
-{
-  if (simClock == nullptr || tgtProv == nullptr)
-    return;
-
-  simClock->reset(mconf->time_step, mconf->tgt_time_step);
-
-  if (typeid(*tgtProv) == typeid(JsonTargetProvider)) {
-    tgtProv->init(simClock);
   }
 }
