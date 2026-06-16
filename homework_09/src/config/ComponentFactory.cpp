@@ -4,6 +4,7 @@
 #include "interfaces/IConfigLoader.hpp"
 #include "interfaces/ISimulationClock.hpp"
 #include "solvers/AnalyticalSolver.hpp"
+#include "solvers/TableSolver.hpp"
 #include "providers/JsonTargetProvider.hpp"
 #include "config/FileConfigLoader.hpp"
 #include "config/ManualSimulationClock.hpp"
@@ -27,7 +28,8 @@ std::unique_ptr<IBallisticSolver> ComponentFactory::createSolver(SolverType type
   switch (type) {
     case SolverType::ANALYTICAL:
       return std::make_unique<AnalyticalSolver>();
-
+    case SolverType::TABLE:
+      return std::make_unique<TableSolver>();
     default:
       return nullptr;
   }

@@ -17,7 +17,9 @@ add_library(
     src/core/DroneControl.cpp
     src/core/Mission.cpp
     src/core/TargetControl.cpp
-    src/config/ComponentFactory.cpp)
+    src/config/ComponentFactory.cpp
+    src/solvers/TableSolver.cpp
+    )
 
 target_include_directories(
     hw9_core

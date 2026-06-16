@@ -11,7 +11,7 @@
 
 class ComponentFactory {
 public:
-  enum class SolverType : std::uint8_t { ANALYTICAL };
+  enum class SolverType : std::uint8_t { ANALYTICAL, TABLE };
   enum class ProviderType : std::uint8_t { JSON };
   enum class LoaderType : std::uint8_t { FILE };
   enum class SimulationClockType : std::uint8_t { MANUAL };
