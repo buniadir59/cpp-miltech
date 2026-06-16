@@ -1,13 +1,13 @@
 #pragma once
 
-#include <numbers>
-#include <iostream>
-#include <cmath>
+#include <iosfwd>
 /*
   AngleRad lib
 */
 
 namespace anglemath {
+
+inline constexpr double kPi = 3.14159265358979323846;
 
 struct AngleRad {
   double value;
@@ -20,12 +20,13 @@ struct AngleRad {
 
   auto normalize() -> void
   {
-    while (value > std::numbers::pi) {
-      value -= 2 * std::numbers::pi;
-    }
-    while (value <= -std::numbers::pi) {
-      value += 2 * std::numbers::pi;
-    }
+      while (value > kPi) { 
+    value -= 2 * kPi; 
+  }
+  while (value <= - kPi) {  
+    value += 2 * kPi;  
+  }
+
   }
 
   auto operator+=(double d) -> AngleRad&

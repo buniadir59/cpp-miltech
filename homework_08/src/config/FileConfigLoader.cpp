@@ -8,6 +8,7 @@
 #include <exception>
 #include <string>
 #include <unordered_map>
+#include <iostream>
 
 using json = nlohmann::json;
 

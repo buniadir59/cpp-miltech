@@ -1,7 +1,6 @@
 #pragma once
 
-#include <iostream>
-#include <cmath>
+#include <iosfwd>
 
 /*
   Point matyh lib
@@ -45,11 +44,8 @@ struct Point {
     return *this;
   }
 
-  auto operator==(const Point& other) const
-  {  // TODO: eps doesnt make sense - it shall be accuracy ...
-    constexpr double eps = 1e-9;
-    return std::abs(x - other.x) < eps && std::abs(y - other.y) < eps;
-  }
+  auto operator==(const Point& other) const -> bool;
+
 };
 
 auto operator+(Point a1, const Point& a2) -> Point;

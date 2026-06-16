@@ -1,6 +1,5 @@
 #pragma once
 
-#include "dto/SimStatistics.hpp"
 #include "core/TargetControl.hpp"
 #include "core/DroneControl.hpp"
 #include "core/Mission.hpp"
@@ -13,12 +12,16 @@
 namespace dto {
 struct MissionConfig;
 struct Ammo;
-}
+}  // namespace dto
 
 class ITargetProvider;
 class IBallisticSolver;
 class IConfigLoader;
 class ISimulationClock;
+
+namespace dto {
+struct SimStatistics;
+}
 
 namespace core {
 
@@ -28,7 +31,7 @@ namespace core {
 class MissionProcessor {
   ITargetProvider* targets_;
   IConfigLoader* loader_;
-  const ISimulationClock* simClock{nullptr};
+  ISimulationClock* simClock{nullptr};
 
   nlohmann::json j_out;
 
@@ -42,9 +45,8 @@ class MissionProcessor {
 
   std::vector<TargetControl> targetDepo;
 
-  dto::SimStatistics stats{};
   const dto::MissionConfig* mconf = nullptr;
-  const dto::Ammo* ammo = nullptr;  
+  const dto::Ammo* ammo = nullptr;
 
   auto updateTargets() -> void;
 
@@ -58,7 +60,7 @@ class MissionProcessor {
 
 public:
   auto init(const std::string& configSource) -> const dto::MissionConfig*;  // Завантажити конфіг через IConfigLoader, підготувати дані для
-                                                                     // ітерації
+                                                                            // ітерації
   auto hasNext() -> bool;               // Перевірити, чи є ще необроблені цілі
   void reset() { currentTgtTag = 0; };  // Почати ітерацію спочатку
   void changeSolver(IBallisticSolver* solver) { mission.setSolver(solver); };  // Підмінити solver на льоту (Стратегія)
@@ -66,9 +68,9 @@ public:
   bool step();  // Обробити наступну ціль: взяти дані з ITargetProvider, обчислити через IBallisticSolver,
                 // return false if time is out
 
-  auto getSimulationStatistics() -> dto::SimStatistics&;
+  auto getSimulationStatistics() -> dto::SimStatistics;
 
-  MissionProcessor(ITargetProvider* targets, IBallisticSolver* solver, IConfigLoader* loader, const ISimulationClock* clock)
+  MissionProcessor(ITargetProvider* targets, IBallisticSolver* solver, IConfigLoader* loader, ISimulationClock* clock)
     : targets_(targets)
     , loader_(loader)
     , simClock(clock)

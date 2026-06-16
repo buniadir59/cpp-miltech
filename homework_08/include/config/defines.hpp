@@ -1,7 +1,7 @@
 #pragma once
 
-#include <limits>
 #include <string>
+#include <iostream>  //for cout
 
 /* **** defines and contants **** */
 
@@ -34,6 +34,6 @@ constexpr int kMaxSteps = 10000;
 constexpr int kMaxTargets = 32;        // max number of targets
 constexpr int kMaxRecalculations = 6;  // for drop route
 
-constexpr double eps = std::numeric_limits<double>::epsilon();
+inline constexpr double kEps = 1e-9;
 
 }  // namespace defines

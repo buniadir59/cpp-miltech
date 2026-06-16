@@ -10,7 +10,7 @@ auto TargetControl::update(double tgtTimeStep) -> void
 
 auto TargetControl::getAccuracyS(double acc_m) -> double
 {
-  return speed > defines::eps ? std::max(acc_m / speed, 0.1) : 0.1;
+  return speed > defines::kEps ? std::max(acc_m / speed, 0.1) : 0.1;
 }
 
 }  // namespace core

@@ -1,9 +1,15 @@
-#include "dto/SimStatistics.hpp"
 #include "config/ComponentFactory.hpp"
 #include "config/defines.hpp"
+#include "config/ManualSimulationClock.hpp"
+
 #include "core/MissionProcessor.hpp"
 
-#include <exception>
+#include "dto/SimStatistics.hpp"
+
+#include "interfaces/IBallisticSolver.hpp"  // required for std::unique_ptr destructor
+#include "interfaces/IConfigLoader.hpp"     // required for std::unique_ptr destructor
+#include "interfaces/ITargetProvider.hpp"   // required for std::unique_ptr destructor
+
 #include <iomanip>
 #include <iostream>
 #include <cmath>
@@ -51,7 +57,8 @@ auto main() -> int
   
   try {
     ComponentFactory factory;
-    auto simClock = factory.createSimulationClock(ComponentFactory::SimulationClockType::MANUAL);
+    const auto simClock = std::make_unique<ManualSimulationClock>(); 
+
     auto confLoader = factory.createLoader(ComponentFactory::LoaderType::FILE);
     auto solver = factory.createSolver(ComponentFactory::SolverType::ANALYTICAL);
     auto tgtProvider = factory.createProvider(ComponentFactory::ProviderType::JSON, defines::kInputPath);
@@ -63,7 +70,8 @@ auto main() -> int
     core::MissionProcessor processor(tgtProvider.get(), solver.get(), confLoader.get(), simClock.get());
 
     const dto::MissionConfig* mcnf = processor.init(defines::kInputPath);
-    factory.init(mcnf, simClock.get(), tgtProvider.get());
+    simClock->reset(mcnf->time_step, mcnf->tgt_time_step);
+    tgtProvider->init(simClock.get());
 
     while (processor.hasNext()) {
       if (!processor.step()) {

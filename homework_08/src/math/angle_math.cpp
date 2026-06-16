@@ -1,7 +1,7 @@
 #include "math/angle_math.hpp"
 
 #include <cmath>
-
+#include <ostream>
 /*
   Angle math lib
 */
@@ -10,11 +10,11 @@ namespace anglemath {
 
 auto normalizeAngle(double value) -> double
 {
-  while (value > std::numbers::pi) {
-    value -= 2 * std::numbers::pi;
+  while (value > kPi) { 
+    value -= 2 * kPi;
   }
-  while (value <= -std::numbers::pi) {
-    value += 2 * std::numbers::pi;
+  while (value <= - kPi) { 
+    value += 2 * kPi; 
   }
   return value;
 }
@@ -27,7 +27,7 @@ auto operator-(AngleRad a1, const AngleRad& a2) -> AngleRad
 
 auto rad2Grad(double ang) -> int
 {  // utility for better human presentation
-  return static_cast<int>(round(ang / M_PI * 180.0));
+  return static_cast<int>(round(ang / kPi * 180.0));
 }
 
 auto operator<<(std::ostream& os, const AngleRad& aR) -> std::ostream&
