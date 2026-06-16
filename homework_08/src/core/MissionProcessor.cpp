@@ -5,8 +5,10 @@
 #include "dto/Target.hpp"
 #include "core/TargetControl.hpp"
 #include "core/DroneControl.hpp"
+
 #include "interfaces/ITargetProvider.hpp"
 #include "interfaces/IConfigLoader.hpp"
+
 #include "math/angle_math.hpp"
 #include "math/point_math.hpp"
 
@@ -69,15 +71,16 @@ auto MissionProcessor::checkFireResult(TargetControl& tgt) -> bool
   return false;
 }
 
-auto MissionProcessor::getSimulationStatistics() -> dto::SimStatistics&
+auto MissionProcessor::getSimulationStatistics() -> dto::SimStatistics
 {
-  stats.stepsTaken = stepCurrent;
-  stats.destroyed = std::count_if(targetDepo.begin(), targetDepo.end(), [](const TargetControl& tgt) { return tgt.state == DESTROYED; });
-  stats.underAttack = std::count_if(targetDepo.begin(), targetDepo.end(), [](const TargetControl& tgt) { return tgt.state == ATTACKED; });
-  stats.total = targetDepo.size();
-  stats.active = stats.total - stats.destroyed - stats.underAttack;
-
-  return stats;
+  int attacked_ = std::count_if(targetDepo.begin(), targetDepo.end(), [](const TargetControl& tgt) { return tgt.state == ATTACKED; });
+  int destroyed_ = std::count_if(targetDepo.begin(), targetDepo.end(), [](const TargetControl& tgt) { return tgt.state == DESTROYED; });
+  int total_ = targetDepo.size();
+  return {.total = total_,
+          .active = total_ - destroyed_ - attacked_,
+          .underAttack = attacked_,
+          .destroyed = destroyed_,
+          .stepsTaken = stepCurrent};
 }
 
 // gets new targets position and velocity
@@ -125,7 +128,6 @@ bool MissionProcessor::step()
   if (stepCurrent > defines::kMaxSteps) {  // simulation is over!
     return false;
   }
-
   updateTargets();  // unreachable => active
 
   if (mission.isOnMission()) {
@@ -223,7 +225,6 @@ MissionProcessor::~MissionProcessor()
   if (jf_out.is_open()) {
     jf_out << j_out.dump(2);  // 2 spaces => tab
   }
-  // else { throw std::runtime_error("Unable to open output file: ");  }
 }
 
 // Записати дані кроку у вихідн. JSON файл

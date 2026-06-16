@@ -7,6 +7,8 @@
 #include "interfaces/IBallisticSolver.hpp"
 #include "config/defines.hpp"
 
+#include <cmath>
+
 using Point = pointmath::Point;
 using AngleRad = anglemath::AngleRad;
 
@@ -263,7 +265,7 @@ auto Mission::calculateMissionDropeRoute(const dto::Target& target) -> bool
   int count = 0;
   double total_time = calculateTimeForDropRoute(drone->coord);  //@cmdr
   double accuracy_s = currTgt->getAccuracyS(kAccuracy_m);
-  if (currTgt->speed > defines::eps) {  // we shall not calculate time accuracy for still target
+  if (currTgt->speed > defines::kEps) {  // we shall not calculate time accuracy for still target
     // check time accuracy and maybe repeat calculations
     while (std::abs(time_accuracy) > accuracy_s &&
            count < defines::kMaxRecalculations) {  // we are not accurate enough, so we can try to recalculate with new time estimation

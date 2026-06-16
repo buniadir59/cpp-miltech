@@ -9,7 +9,7 @@ auto ManualSimulationClock::nowS() const -> double
 
 auto ManualSimulationClock::nowForTargetProvider() const -> double
 {
-  if (tgtTimeStepS_ < defines::eps) {
+  if (tgtTimeStepS_ < defines::kEps) {
     throw std::runtime_error("Time step for target provider not provided");
   }
 

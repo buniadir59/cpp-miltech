@@ -55,7 +55,6 @@ auto JsonTargetProvider::parseJson(const std::string&  source) -> void
     std::ifstream json_file(full_path);
 
     if (!json_file.is_open()) {
-      std::cerr << "Unable to open: " << full_path << '\n';
       throw std::runtime_error("Error loading targets");
     }
 
