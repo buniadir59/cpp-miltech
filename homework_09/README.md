@@ -89,3 +89,4 @@ homework_09/
    - add calculation for decelerate on the move to give more time to turn
    - for point_math: implement near(accuracy) instead of operator==
    - change interface IBallisticSolver to return separately time/distance of ammo fly  and dropRoute
+   - TODO use f.good() vs f.fail() in load()

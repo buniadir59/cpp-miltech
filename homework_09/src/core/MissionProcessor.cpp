@@ -38,7 +38,7 @@ auto MissionProcessor::init() -> const dto::MissionConfig*
   ammo = &(loader_->getAmmoParams());
 
   drone.emplace(*mconf);
-  mission.init(mconf->time_step, &*drone, mconf->tgt_time_step, ammo);
+  mission.init(mconf, &*drone, ammo);
 
   const auto target_count = targets_->getTargetCount();
   targetDepo.assign(static_cast<std::size_t>(target_count), TargetControl{});
@@ -149,7 +149,7 @@ bool MissionProcessor::step()
         }
       }
       else {  // no available targets, wait moving until farther (at minimum distance or more)
-        drone->state = ACCELERATING;
+        drone->startAccelerating();
         break;
       }
     }
@@ -232,9 +232,9 @@ auto MissionProcessor::pushStepToJSON() -> void
 {
   Point aimPoint = drone->getAimPoint(mission.ammoHorizDist);
   json step;  // крок х-дрона у-дрона кут-дрона стан-дрона ціль№
-  step["position"] = {{"x", drone->coord.x}, {"y", drone->coord.y}};
-  step["direction"] = static_cast<float>(drone->dirRad.value);
-  step["state"] = drone->state;
+  step["position"] = {{"x", drone->getPosition().x}, {"y", drone->getPosition().y}};
+  step["direction"] = static_cast<float>(drone->getDirection());
+  step["state"] = drone->getStateName();
   step["targetIndex"] = currentTgtTag;
 
   step["aimPoint"] = {{"x", aimPoint.x}, {"y", aimPoint.y}};

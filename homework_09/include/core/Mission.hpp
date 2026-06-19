@@ -8,6 +8,7 @@
 
 namespace dto {
 struct Target;
+struct MissionConfig;
 }
 
 namespace core {
@@ -56,7 +57,7 @@ public:
   pointmath::Point tgt_lead_pos;
   pointmath::Point dropPoint;  //=dest point when TO_FIREP, initially target from drop_route
 
-  auto init(double time_step, DroneControl* drone, double tgt_step, const dto::Ammo* ammo) -> void;
+  auto init(const dto::MissionConfig* mconf,  DroneControl* drone_ptr, const dto::Ammo* ammo) -> void;
 
   [[nodiscard]] auto isOnMission() const -> bool { return state != core::NONE; };
   auto startNewMission(TargetControl& tgt) -> bool;
@@ -83,6 +84,6 @@ public:
         return "_UNKNOWN";
     }
   }
-};  // eo Mission ############################
+};  // eo Mission 
 
 }  // namespace core

@@ -13,24 +13,24 @@ using Point = pointmath::Point;
 using AngleRad = anglemath::AngleRad;
 
 namespace {
-  constexpr double kEps = 1e-9;
-  constexpr int kMaxRecalculations = 6;   // for drop route
-}
+constexpr double kEps = 1e-9;
+constexpr int kMaxRecalculations = 6;  // for drop route
+}  // namespace
 
 namespace core {
 
-auto Mission::init(double time_st, DroneControl* drone_ptr, double tgt_step, const dto::Ammo* ammo) -> void
+auto Mission::init(const dto::MissionConfig* mconf, DroneControl* drone_ptr, const dto::Ammo* ammo) -> void
 {
   drone = drone_ptr;
-  time_step = time_st;
-  tgtTimeStep = tgt_step;
-  kAccuracy_m = drone->attSpeed * time_st / 2.0;
+  time_step = mconf->time_step;
+  tgtTimeStep = mconf->tgt_time_step;
+  kAccuracy_m = mconf->time_step * mconf->attack_speed / 2.0;
 
-  dropRoute = solver->solve(drone->coord,
+  dropRoute = solver->solve(mconf->drone_position,
                             tgt_lead_pos,
-                            drone->alt,
-                            drone->attSpeed,
-                            drone->accPath,
+                            mconf->altitude,
+                            mconf->attack_speed,
+                            mconf->acceleration_path,
                             *ammo);  // get ballistic solution for the first time to be able to call short version
   ammoFlyTime = dropRoute.fall_time_s;
   ammoHorizDist = dropRoute.horizontal_fall_distance_m;
@@ -116,7 +116,7 @@ auto Mission::recalculateFPOntheRoute(dto::Target& target) -> int
 
   double angle2tgt{0.0};
   double dist2tgt{0.0};
-  pointmath::trxPointToDistAngle(tgt_lead_pos - drone->coord, dist2tgt, angle2tgt);
+  pointmath::trxPointToDistAngle(tgt_lead_pos - drone->getPosition(), dist2tgt, angle2tgt);
 
   destAngle = angle2tgt;  // update destination according to lead targeting
   double delta2fp = dist2tgt - ammoHorizDist;
@@ -125,14 +125,14 @@ auto Mission::recalculateFPOntheRoute(dto::Target& target) -> int
 
   if (std::abs(delta2fp) <= kAccuracy_m) {  // we just missed the fire point, or we are close enough,
     // so we can try to fire on the move
-    if (drone->state != core::MOVING) {
+    if (!drone->isMoving()) {
       LOG("@at FP: not MOVING!@dist to FP=" << delta2fp << "@ tmr=" << timer);
       currTgt->state = core::UNREACHABLE;
       return 1;  // we will miss, because ammo ff time will be less than needed
     }
     // fire!
-    drone->state = core::DECELERATING;  //@continue mission
-    return -1;                          // fire
+    drone->startDecelerating();  //@continue mission
+    return -1;                   // fire
   }
 
   if (delta2fp < 0) {
@@ -142,31 +142,33 @@ auto Mission::recalculateFPOntheRoute(dto::Target& target) -> int
   }
 
   double time_fly_to_FP = drone->getTimeToFlyToFP(delta2fp);
-  auto deltaAngle = AngleRad(angle2tgt - drone->dirRad.value);
+  auto deltaAngle = AngleRad(angle2tgt - drone->getDirection());
   double min_time_to_turn = drone->getMinTimeToTurn(deltaAngle, time_fly_to_FP, time_step);
 
-  destPoint = drone->coord + pointmath::cossin(angle2tgt) * delta2fp;
+  destPoint = drone->getPosition() + pointmath::cossin(angle2tgt) * delta2fp;
   dropPoint = destPoint;
 
   if (min_time_to_turn > 0.0) {
-    if (drone->speed > 0.0) {             // not enough time to turn fully on the route
-      drone->state = core::DECELERATING; 
+    if (drone->getSpeed() > 0.0) {  // not enough time to turn fully on the route
+      drone->startDecelerating();
     }
     else {  // v=0, turn on the spot
-      drone->state = core::TURNING;
+      drone->startTurning();
     }
   }
   else {  // we can continue moving
-    drone->state = drone->speed < drone->attSpeed ? core::ACCELERATING : core::MOVING;
+    // TODO if really needed ??? //drone->state = drone->speed < drone->attSpeed ? core::ACCELERATING : core::MOVING;
   }
 
-  if ((drone->state != core::TURNING) && (deltaAngle.value != 0.0)) {  // turn on the move if needed
-    if (std::abs(deltaAngle.value) < drone->turnThrld) {
+  if ((!drone->isTurning()) && (deltaAngle.value != 0.0)) {  // turn on the move if needed
+    double delta_threshold = drone->getTurnThreshold();
+    if (std::abs(deltaAngle.value) < delta_threshold) {
       drone->setDroneDirection(angle2tgt);  //@RCFP
     }
     else {
-      drone->setDroneDirection((deltaAngle.value < 0.0) ? drone->dirRad.value - drone->turnThrld  //@RCFP
-                                                        : drone->dirRad.value + drone->turnThrld);
+      double curr_dir = drone->getDirection();
+      drone->setDroneDirection((deltaAngle.value < 0.0) ? curr_dir - delta_threshold  //@RCFP
+                                                        : curr_dir + delta_threshold);
     }
   }
 
@@ -175,7 +177,7 @@ auto Mission::recalculateFPOntheRoute(dto::Target& target) -> int
 
 auto Mission::solveDropRoute() -> void  // wrapper for solve
 {
-  dropRoute = solver->solve(drone->coord, tgt_lead_pos);
+  dropRoute = solver->solve(drone->getPosition(), tgt_lead_pos);
   ammoFlyTime = dropRoute.fall_time_s;
   ammoHorizDist = dropRoute.horizontal_fall_distance_m;
 }
@@ -190,13 +192,13 @@ auto Mission::recalculateTimeToFP(dto::Target& target) -> double
   tgt_lead_pos = getTargetLeadPosition(target, timer + ammoFlyTime);  //@rcfp
   double angle2tgt{0.0};
   double dist2tgt{0.0};
-  pointmath::trxPointToDistAngle(tgt_lead_pos - drone->coord, dist2tgt, angle2tgt);
+  pointmath::trxPointToDistAngle(tgt_lead_pos - drone->getPosition(), dist2tgt, angle2tgt);
   destAngle = angle2tgt;  // update destination according to lead targeting
   double delta2fp = dist2tgt - ammoHorizDist;
   double min_time_to_turn = 0.0;
   double time_fly_to_FP = delta2fp <= kAccuracy_m ? 0.0 : drone->getTimeToFlyToFP(delta2fp);
-  if (drone->state == core::TURNING) {
-    min_time_to_turn = drone->getMinTimeToTurn(AngleRad(angle2tgt - drone->dirRad.value), time_fly_to_FP, time_step);
+  if (!drone->isTurning()) {
+    min_time_to_turn = drone->getMinTimeToTurn(AngleRad(angle2tgt - drone->getDirection()), time_fly_to_FP, time_step);
   }
 
   return min_time_to_turn + time_fly_to_FP;
@@ -218,7 +220,7 @@ auto Mission::calculateTimeForDropRoute(const pointmath::Point& start) -> double
       dropRoute.has_intermediate_point = false;
     }
     else {
-      time_to_interim = drone->getTurnTime(AngleRad(angle_to_interim - drone->dirRad.value));  // turn from current dr.dir to IP
+      time_to_interim = drone->getTurnTime(AngleRad(angle_to_interim - drone->getDirection()));  // turn from current dr.dir to IP
       time_to_interim += drone->getTimeToFlyToInterimPoint(dist_to_interim);
 
       double dist_to_fire = 0.0;
@@ -238,7 +240,7 @@ auto Mission::calculateTimeForDropRoute(const pointmath::Point& start) -> double
     double angle{0.0};
     pointmath::trxPointToDistAngle(pos_fire - start, dist, angle);
     total_time = drone->getTimeToFlyToFP(dist);
-    double minTurnTime = drone->getMinTimeToTurn(AngleRad(angle - drone->dirRad.value), total_time, time_step);
+    double minTurnTime = drone->getMinTimeToTurn(AngleRad(angle - drone->getDirection()), total_time, time_step);
     total_time += minTurnTime;  // turn from current dr.dir to FP
   }
 
@@ -252,18 +254,19 @@ auto Mission::calculateTimeForDropRoute(const pointmath::Point& start) -> double
 // returns false if mission is impossible
 auto Mission::calculateMissionDropeRoute(const dto::Target& target) -> bool
 {
-  constexpr double kMinSpeedRatio = 0.8;
-  const double angleToTarget = pointmath::getAngle(target.position - drone->coord);
-  const double projectedTgtSpeed = currTgt->speed * std::cos(angleToTarget);
-
-  if (drone->attSpeed * kMinSpeedRatio < projectedTgtSpeed) {
-    return false;
-  }
+  /*
+  //TODO if needed ???
+    constexpr double kMinSpeedRatio = 0.8;
+    const double angleToTarget = pointmath::getAngle(target.position - drone->getPosition());
+    const double projectedTgtSpeed = currTgt->speed * std::cos(angleToTarget);
+   if (drone->attSpeed * kMinSpeedRatio < projectedTgtSpeed) {
+      return false;
+    } */
 
   tgt_lead_pos = getTargetLeadPosition(target, timer + ammoFlyTime);  //@sm
   solveDropRoute();                                                   // get ballistic solution
   int count = 0;
-  double total_time = calculateTimeForDropRoute(drone->coord);  //@cmdr
+  double total_time = calculateTimeForDropRoute(drone->getPosition());  //@cmdr
   double accuracy_s = currTgt->getAccuracyS(kAccuracy_m);
   if (currTgt->speed > kEps) {  // we shall not calculate time accuracy for still target
     // check time accuracy and maybe repeat calculations
@@ -272,8 +275,8 @@ auto Mission::calculateMissionDropeRoute(const dto::Target& target) -> bool
       count++;
 
       tgt_lead_pos = getTargetLeadPosition(target, total_time + ammoFlyTime);
-      solveDropRoute();                                      // @ cmdr
-      total_time = calculateTimeForDropRoute(drone->coord);  //@cmdr
+      solveDropRoute();                                              // @ cmdr
+      total_time = calculateTimeForDropRoute(drone->getPosition());  //@cmdr
     }
 
     if (count > countMaxRecalc) {
@@ -308,7 +311,7 @@ auto Mission::calculateMission() -> bool
 
   // to  TO_FIREP
   destPoint = dropRoute.fire_p;
-  destAngle = pointmath::getAngle(destPoint - drone->coord);
+  destAngle = pointmath::getAngle(destPoint - drone->getPosition());
   timer = time_total - time_to_interim;
   tgt_lead_pos = getTargetLeadPosition(target, timer + ammoFlyTime);  //@snm
   if (recalculateFPOntheRoute(currTgt->now)) {                        //@snm
@@ -320,15 +323,17 @@ auto Mission::calculateMission() -> bool
   double ttt = drone->getMinTimeToTurn(destAngle, timer, time_step);
 
   if (ttt > 0.0) {
-    if (!((drone->state == core::STOPPED) || (drone->state == core::TURNING))) {
-      drone->state = core::DECELERATING;  // @snm
+    if (!((!drone->isStopped()) || (!drone->isTurning()))) {
+      drone->startDecelerating();  // @snm
     }
   }
   else {
     if (destAngle.value != 0.0) {
-      drone->setDroneDirection((destAngle.value < 0.0) ? drone->dirRad.value - drone->turnThrld : drone->dirRad.value + drone->turnThrld);
+      double curr_dir = drone->getDirection();
+      double turn_thresh = drone->getTurnThreshold();
+      drone->setDroneDirection((destAngle.value < 0.0) ? curr_dir - turn_thresh : curr_dir + turn_thresh);
     }
-    drone->state = drone->speed == drone->attSpeed ? core::MOVING : core::ACCELERATING;
+    // TODO if needed ?? drone->state = drone->speed == drone->attSpeed ? core::MOVING : core::ACCELERATING;
   }
 
   DEBUG("@SNM " << missionStateToStr() << "@tmr=" << timer << "@MdA" << destAngle << "@MdP@" << destPoint << "@FP@" << dropPoint << "@LP@"
