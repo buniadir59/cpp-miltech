@@ -3,8 +3,8 @@
   // Для ДЗ 5 потрібно буде додати окрему конфігурацію за цим прикладом.
   "version": "0.2.0",
   "configurations": [
-    {
-      // Локальний debug demo-коду заняття 2.4. Використовує bad input,
+
+    {     // Локальний debug demo-коду заняття 2.4. Використовує bad input,
       // щоб GDB зупинився на runtime crash.
       "name": "Debug demo 2.4: debug_probe",
       "type": "cppdbg",
@@ -28,8 +28,8 @@
         }
       ]
     },
-    {
-      // Локальний debug  ДЗ 4. preLaunchTask збирає debug preset.
+    {     // Локальний debug  ДЗ 4. preLaunchTask збирає debug preset.
+      
       "name": "Debug homework_04: ugv_odometry",
       "type": "cppdbg",
       "request": "launch",
@@ -52,7 +52,7 @@
         }
       ]
     },
-    {
+    {     // Локальний debug  ДЗ 2
       "name": "Debug homework_02: drone_sim",
       "type": "cppdbg",
       "request": "launch",
@@ -68,7 +68,7 @@
       ],
       "externalConsole": false,
       "MIMode": "gdb",
-      "miDebuggerPath": "/usr/bin/gdb",,
+      "miDebuggerPath": "/usr/bin/gdb",
       "symbolLoadInfo": {
         "loadAll": false
       },
@@ -83,9 +83,10 @@
           "description": "Do not auto-load shared library symbols",
           "text": "-gdb-set auto-solib-add off",
           "ignoreFailures": true
-        },
-        {
-      // Локальний debug стартера ДЗ 5. preLaunchTask збирає debug preset.
+        }
+      ]
+    },
+    {     // Локальний debug  ДЗ 5. preLaunchTask збирає debug preset.
       "name": "Debug homework_05: telemetry_check",
       "type": "cppdbg",
       "request": "launch",
@@ -112,7 +113,7 @@
         }
       ]
     },
-        {
+    {     // Локальний debug  ДЗ 3
       "name": "Debug homework_03: drone_sim",
       "type": "cppdbg",
       "request": "launch",
@@ -128,7 +129,85 @@
       ],
       "externalConsole": false,
       "MIMode": "gdb",
-      "miDebuggerPath": "/usr/bin/gdb",,
+      "miDebuggerPath": "/usr/bin/gdb",
+      "symbolLoadInfo": {
+        "loadAll": false
+      },
+      "preLaunchTask": "CMake: configure and build",
+      "setupCommands": [
+        {
+          "description": "Disable debuginfod downloads",
+          "text": "-gdb-set debuginfod enabled off",
+          "ignoreFailures": true
+        },
+        {
+          "description": "Do not auto-load shared library symbols",
+          "text": "-gdb-set auto-solib-add off",
+          "ignoreFailures": true
+        },
+        {
+          "description": "Увімкнути pretty-printing для STL типів у GDB.",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ]
+    },
+    {     // Локальний debug  ДЗ 7
+      "name": "Debug homework_07: drone_sim",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/debug/homework_07/hw7_drone_sim",
+      "args": [],
+      "stopAtEntry": true,
+      "cwd": "${workspaceFolder}",
+      "environment": [
+        {
+          "name": "DEBUGINFOD_URLS",
+          "value": ""
+        }
+      ],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "/usr/bin/gdb",
+      "symbolLoadInfo": {
+        "loadAll": false
+      },
+      "preLaunchTask": "CMake: configure and build",
+      "setupCommands": [
+        {
+          "description": "Disable debuginfod downloads",
+          "text": "-gdb-set debuginfod enabled off",
+          "ignoreFailures": true
+        },
+        {
+          "description": "Do not auto-load shared library symbols",
+          "text": "-gdb-set auto-solib-add off",
+          "ignoreFailures": true
+        },
+        {
+          "description": "Увімкнути pretty-printing для STL типів у GDB.",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ]
+    },
+    {     // Локальний debug  ДЗ 78
+      "name": "Debug homework_08: drone_sim",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/debug/homework_08/hw8_drone_sim",
+      "args": [],
+      "stopAtEntry": true,
+      "cwd": "${workspaceFolder}",
+      "environment": [
+        {
+          "name": "DEBUGINFOD_URLS",
+          "value": ""
+        }
+      ],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "/usr/bin/gdb",
       "symbolLoadInfo": {
         "loadAll": false
       },
