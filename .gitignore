@@ -29,6 +29,11 @@ _deps/
 core
 core.*
 
+!homework_08/include/core/
+!homework_08/include/core/**
+!homework_08/src/core/
+!homework_08/src/core/**
+
 # Метадані операційної системи не є частиною навчального репозиторію.
 .DS_Store
 Thumbs.db
