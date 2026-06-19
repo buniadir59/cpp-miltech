@@ -3,23 +3,20 @@
 #include "dto/BallisticsInput.hpp"
 #include "math/point_math.hpp"
 
-namespace {
+#include <cmath>
+#include <stdexcept>
 
-//TODO constexpr double kGravity = 9.81;
+namespace {
 constexpr double kEpsilon = std::numeric_limits<double>::epsilon();
 
 }  // namespace
 
-auto TableSolver::calculate_free_fall_time_s() const -> double
+TableSolver::TableSolver(const char* source)
 {
-  
-   return 0.0; //TODO
-}
-
-auto TableSolver::calculate_horizontal_fall_distance_m(double TableSolverTableSolver) const -> double
-{
-  
-  return 0.0;
+  if (!table.load(source) ) 
+  {
+    throw std::runtime_error("Error reading ballistic table");
+  }
 }
 
 void TableSolver::validate_input() const
@@ -44,49 +41,44 @@ void TableSolver::validate_input() const
 auto TableSolver::solve(const pointmath::Point& drone_position, const pointmath::Point& target_position) -> dto::DropSolution
 {
   validate_input();
-  dto::DropSolution result{};
+  dto::DropSolution drop_route{};
+  Result ball_res = table.lookup({input.drone_z, input.attack_speed, input.mass, input.drag, input.lift});
+  drop_route.fall_time_s = ball_res.ffTime;
+  drop_route.horizontal_fall_distance_m = ball_res.hDist;
 
-  result.fall_time_s = calculate_free_fall_time_s();
-  result.horizontal_fall_distance_m = calculate_horizontal_fall_distance_m(result.fall_time_s);
-
-  if (result.horizontal_fall_distance_m < 0.0) {
-    throw std::domain_error("Invalid horizontal fall distance");
-  }
-
-  const double minimum_distance_m = result.horizontal_fall_distance_m + input.acceleration_path;
+  const double minimum_distance_m = ball_res.hDist + input.acceleration_path;
 
   const pointmath::Point diff = target_position - drone_position;
-
   const double distance_to_target_m = pointmath::getLength(diff);
 
   if (distance_to_target_m < kEpsilon) {  // NB! solution is not optimal here, better to go in the direction opposite to target
-    result.has_intermediate_point = true;
-    result.interm_p = {target_position.x + minimum_distance_m, target_position.y};
+    drop_route.has_intermediate_point = true;
+    drop_route.interm_p = {target_position.x + minimum_distance_m, target_position.y};
 
-    result.fire_p = {target_position.x + result.horizontal_fall_distance_m, target_position.y};
+    drop_route.fire_p = {target_position.x + drop_route.horizontal_fall_distance_m, target_position.y};
 
-    return result;
+    return drop_route;
   }
 
   if (minimum_distance_m > distance_to_target_m) {
     const double minimum_distance_ratio = minimum_distance_m / distance_to_target_m;
 
-    result.has_intermediate_point = true;
-    result.interm_p = target_position - diff * minimum_distance_ratio;
+    drop_route.has_intermediate_point = true;
+    drop_route.interm_p = target_position - diff * minimum_distance_ratio;
   }
 
-  const double fire_point_ratio = (distance_to_target_m - result.horizontal_fall_distance_m) / distance_to_target_m;
-  result.fire_p = drone_position + diff * fire_point_ratio;
+  const double fire_point_ratio = (distance_to_target_m - drop_route.horizontal_fall_distance_m) / distance_to_target_m;
+  drop_route.fire_p = drone_position + diff * fire_point_ratio;
 
-  return result;
+  return drop_route;
 }
 
 auto TableSolver::solve(const pointmath::Point& drone_position,
-                             const pointmath::Point& target_position,
-                             double altitude_m,
-                             double att_speed,
-                             double acc_path,
-                             const dto::Ammo& ammo) -> dto::DropSolution
+                        const pointmath::Point& target_position,
+                        double altitude_m,
+                        double att_speed,
+                        double acc_path,
+                        const dto::Ammo& ammo) -> dto::DropSolution
 {
   input.setAmmoParams(ammo).setDroneAccelerationPath(acc_path).setDroneAltitude(altitude_m).setDroneAttackSpeed(att_speed);
   return solve(drone_position, target_position);

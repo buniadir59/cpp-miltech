@@ -3,6 +3,9 @@
 #include "dto/BallisticsInput.hpp"
 #include "math/point_math.hpp"
 
+#include <cmath>
+#include <stdexcept>
+
 namespace {
 
 constexpr double kGravity = 9.81;

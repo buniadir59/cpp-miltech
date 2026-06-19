@@ -10,7 +10,6 @@
 #include "math/angle_math.hpp"
 #include "math/point_math.hpp"
 
-#include <iterator>
 #include <nlohmann/json.hpp>
 #include <cmath>
 #include <stdexcept>
@@ -18,6 +17,7 @@
 #include <optional>
 #include <algorithm>
 #include <string>
+#include <iterator>
 
 using json = nlohmann::json;
 
@@ -26,9 +26,9 @@ using AngleRad = anglemath::AngleRad;
 
 namespace core {
 
-auto MissionProcessor::init(const std::string& configSource) -> void 
+auto MissionProcessor::init() -> const dto::MissionConfig*
 {
-  if (!loader_->load(configSource)) {
+  if (!loader_->load(defines::kConfigPath)) {
     throw std::runtime_error("Error loading configuration");
   };
 
@@ -50,13 +50,12 @@ auto MissionProcessor::init(const std::string& configSource) -> void
   currentTgtTag = 0;
   stepCurrent = 0;
 
-  clock_->reset(mconf->time_step, mconf->tgt_time_step);
-  targets_->init(clock_.get());
+  return &*mconf;
 }
 
 auto MissionProcessor::checkFireResult(TargetControl& tgt) -> bool
 {
-  if (std::abs(clock_->nowS() - tgt.hitTime) <= mconf->time_step / 2.0) {
+  if (std::abs(simClock->nowS() - tgt.hitTime) <= mconf->time_step / 2.0) {
     double dist = pointmath::getLength(tgt.now.position - tgt.hitCoord);
     LOG("@ Hit at dist=" << dist << "@ hit_time=" << tgt.hitTime);
     if (dist <= mconf->hit_rad) {
@@ -70,15 +69,16 @@ auto MissionProcessor::checkFireResult(TargetControl& tgt) -> bool
   return false;
 }
 
-auto MissionProcessor::getSimulationStatistics() -> dto::SimStatistics&
+auto MissionProcessor::getSimulationStatistics() -> dto::SimStatistics
 {
-  stats.stepsTaken = stepCurrent;
-  stats.destroyed = std::count_if(targetDepo.begin(), targetDepo.end(), [](const TargetControl& tgt) { return tgt.state == DESTROYED; });
-  stats.underAttack = std::count_if(targetDepo.begin(), targetDepo.end(), [](const TargetControl& tgt) { return tgt.state == ATTACKED; });
-  stats.total = targetDepo.size();
-  stats.active = stats.total - stats.destroyed - stats.underAttack;
-
-  return stats;
+  int attacked_ = std::count_if(targetDepo.begin(), targetDepo.end(), [](const TargetControl& tgt) { return tgt.state == ATTACKED; });
+  int destroyed_ = std::count_if(targetDepo.begin(), targetDepo.end(), [](const TargetControl& tgt) { return tgt.state == DESTROYED; });
+  int total_ = targetDepo.size();
+  return {.total = total_,
+          .active = total_ - destroyed_ - attacked_,
+          .underAttack = attacked_,
+          .destroyed = destroyed_,
+          .stepsTaken = stepCurrent};
 }
 
 // gets new targets position and velocity
@@ -97,7 +97,7 @@ auto MissionProcessor::updateTargets() -> void
 
       case ATTACKED:
         if (checkFireResult(targetDepo[i])) {
-          LOG(stepCurrent << "@ T#" << i << "@ time=" << clock_->nowS() << "@ Result of attack=" << targetDepo[i].targetStateToStr()
+          LOG(stepCurrent << "@ T#" << i << "@ time=" << simClock->nowS() << "@ Result of attack=" << targetDepo[i].targetStateToStr()
                           << "@ TPos@" << targetDepo[i].now.position << "@ TSpeed=" << targetDepo[i].speed);
         }
         break;
@@ -169,7 +169,7 @@ bool MissionProcessor::step()
 
   ++stepCurrent;
   drone->move(mconf->time_step);
-  clock_->advance();
+  // clock_->advance();
   return true;
 }
 
@@ -225,7 +225,6 @@ MissionProcessor::~MissionProcessor()
   if (jf_out.is_open()) {
     jf_out << j_out.dump(2);  // 2 spaces => tab
   }
-  // else { throw std::runtime_error("Unable to open output file: ");  }
 }
 
 // Записати дані кроку у вихідн. JSON файл
@@ -256,7 +255,7 @@ auto MissionProcessor::fire() -> void
 {
   targetDepo[currentTgtTag].state = core::ATTACKED;
   targetDepo[currentTgtTag].hitCoord = drone->getAimPoint(mission.ammoHorizDist);
-  targetDepo[currentTgtTag].hitTime = clock_->nowS() + mission.ammoFlyTime;
+  targetDepo[currentTgtTag].hitTime = simClock->nowS() + mission.ammoFlyTime;
   LOG(stepCurrent << "@Fired! T#" << currentTgtTag << "@ hittime=" << targetDepo[currentTgtTag].hitTime << "@hitCoord@"
                   << targetDepo[currentTgtTag].hitCoord);
 }

@@ -1,6 +1,9 @@
 #include "config/ManualSimulationClock.hpp"
 #include <stdexcept>
-#include "config/defines.hpp"
+
+namespace {
+  constexpr double kMinTimeStep = 0.01;
+}
 
 auto ManualSimulationClock::nowS() const -> double
 {
@@ -9,7 +12,7 @@ auto ManualSimulationClock::nowS() const -> double
 
 auto ManualSimulationClock::nowForTargetProvider() const -> double
 {
-  if (tgtTimeStepS_ < defines::eps) {
+  if (tgtTimeStepS_ < kMinTimeStep) {
     throw std::runtime_error("Time step for target provider not provided");
   }
 

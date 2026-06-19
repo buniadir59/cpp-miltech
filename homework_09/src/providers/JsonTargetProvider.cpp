@@ -5,7 +5,6 @@
 #include <cmath>
 #include <cstddef>
 #include <nlohmann/json.hpp>
-#include <filesystem>
 #include <fstream>
 #include <exception>
 #include <stdexcept>
@@ -51,11 +50,9 @@ auto JsonTargetProvider::getTarget(int idx) -> dto::Target
 auto JsonTargetProvider::parseJson(const std::string&  source) -> void
 {
   {
-    std::filesystem::path full_path = std::filesystem::path(source) / kTgtsFileName;
-    std::ifstream json_file(full_path);
+    std::ifstream json_file(source);
 
     if (!json_file.is_open()) {
-      std::cerr << "Unable to open: " << full_path << '\n';
       throw std::runtime_error("Error loading targets");
     }
 
@@ -66,6 +63,7 @@ auto JsonTargetProvider::parseJson(const std::string&  source) -> void
       tgtCount = tgts_j["targetCount"];
       nOfTgtTimeSteps = tgts_j["timeSteps"];
 
+      //validate target params
       if ((tgtCount > kMaxTargetCount) || (nOfTgtTimeSteps > kMaxTargetTimeSteps) || (nOfTgtTimeSteps < 2)) {
         throw std::runtime_error("Invalid parameters in targets json.");
       }

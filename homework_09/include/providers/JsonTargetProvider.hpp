@@ -11,7 +11,7 @@
 // Завантажує таблицю координат цілей з JSON-файлу,
 // повертає ціль(координати і швидкість) згідно з поточним часом симуляції
 class JsonTargetProvider final : public ITargetProvider {
-  const char* const kTgtsFileName = "targets.json";
+  const std::string kTgtsFileName = "targets.json";
 
   static constexpr size_t kMaxTargetCount = 64;
   static constexpr size_t kMaxTargetTimeSteps = 200;

@@ -1,5 +1,9 @@
 #include "core/TargetControl.hpp"
-#include "config/defines.hpp"
+
+
+namespace {
+  inline constexpr double kEps = 1e-9;
+}
 
 namespace core {
 
@@ -10,7 +14,10 @@ auto TargetControl::update(double tgtTimeStep) -> void
 
 auto TargetControl::getAccuracyS(double acc_m) -> double
 {
-  return speed > defines::eps ? std::max(acc_m / speed, 0.1) : 0.1;
+  if (speed > kEps) {
+    const double val = acc_m / speed; 
+    return (val > 0.1) ? val : 0.1;
+  }
+  return 0.1;
 }
-
 }  // namespace core

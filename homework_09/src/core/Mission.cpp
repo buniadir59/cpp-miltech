@@ -7,8 +7,15 @@
 #include "interfaces/IBallisticSolver.hpp"
 #include "config/defines.hpp"
 
+#include <cmath>
+
 using Point = pointmath::Point;
 using AngleRad = anglemath::AngleRad;
+
+namespace {
+  constexpr double kEps = 1e-9;
+  constexpr int kMaxRecalculations = 6;   // for drop route
+}
 
 namespace core {
 
@@ -76,11 +83,6 @@ auto Mission::continueMission() -> bool
         return false;
       }
 
-      /*Дрон досяг fire point під час розгону/гальмування — не скидає бомбу, а перезапускає місію. Можливо
-      надмірно суворо: можна було б чекати MOVING замість перезапуску.
-
-      Або додати можливість скиду на довільній швидкості. Симулятор ДЗ3 це підтримує
-      TODO! Але це нечесно! заряд не долетить - хммм, подивитись баллістичне рішення для іншої швидкості? */
       return missionResultCode == -1;  // fired or continue
       break;
 
@@ -96,7 +98,7 @@ auto Mission::recalculateFPOntheRoute(dto::Target& target) -> int
 {
   int count = 0;
   double timeFPAccuracy = 0.0;
-  while (++count < defines::kMaxRecalculations) {
+  while (++count < kMaxRecalculations) {
     double timeToFP = recalculateTimeToFP(target);
 
     timeFPAccuracy = timeToFP - timer;
@@ -106,7 +108,7 @@ auto Mission::recalculateFPOntheRoute(dto::Target& target) -> int
     }
   }
 
-  if (count == defines::kMaxRecalculations) {  // mission impossible
+  if (count == kMaxRecalculations) {  // mission impossible
     DEBUG("MISSION IMPOSSIBLE! timer=" << timer);
     currTgt->state = core::UNREACHABLE;
     return 3;
@@ -147,8 +149,8 @@ auto Mission::recalculateFPOntheRoute(dto::Target& target) -> int
   dropPoint = destPoint;
 
   if (min_time_to_turn > 0.0) {
-    if (drone->speed > 0.0) {             // need to stop first, to turn
-      drone->state = core::DECELERATING;  // TODO: calculate/test mode decelerate-accelerate to give more time to turn?
+    if (drone->speed > 0.0) {             // not enough time to turn fully on the route
+      drone->state = core::DECELERATING; 
     }
     else {  // v=0, turn on the spot
       drone->state = core::TURNING;
@@ -263,10 +265,10 @@ auto Mission::calculateMissionDropeRoute(const dto::Target& target) -> bool
   int count = 0;
   double total_time = calculateTimeForDropRoute(drone->coord);  //@cmdr
   double accuracy_s = currTgt->getAccuracyS(kAccuracy_m);
-  if (currTgt->speed > defines::eps) {  // we shall not calculate time accuracy for still target
+  if (currTgt->speed > kEps) {  // we shall not calculate time accuracy for still target
     // check time accuracy and maybe repeat calculations
     while (std::abs(time_accuracy) > accuracy_s &&
-           count < defines::kMaxRecalculations) {  // we are not accurate enough, so we can try to recalculate with new time estimation
+           count < kMaxRecalculations) {  // we are not accurate enough, so we can try to recalculate with new time estimation
       count++;
 
       tgt_lead_pos = getTargetLeadPosition(target, total_time + ammoFlyTime);
@@ -282,7 +284,7 @@ auto Mission::calculateMissionDropeRoute(const dto::Target& target) -> bool
   DEBUG("@CMDR@ count=" << count << ' ' << missionStateToStr() << "@ TPos=@" << target.position << "@ Tv=" << currTgt->speed
                         << "@ ttfp=" << total_time);
 
-  return count < defines::kMaxRecalculations;
+  return count < kMaxRecalculations;
 }
 
 auto Mission::calculateMission() -> bool

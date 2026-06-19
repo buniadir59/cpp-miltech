@@ -1,7 +1,12 @@
 #include "core/DroneControl.hpp"
 #include "math/point_math.hpp"
 #include "math/angle_math.hpp"
-#include "config/defines.hpp"
+#include <cmath>
+
+namespace {
+  inline constexpr double kEps = 1e-9;
+}
+
 
 namespace core {
 
@@ -32,7 +37,7 @@ auto DroneControl::getTimeToFlyToInterimPoint(double dist) const -> double
   // we assume, starting and final drone states are Stopped
   double cruize_dist = dist - 2.0 * accPath;
 
-  if (cruize_dist > defines::eps) {
+  if (cruize_dist > kEps) {
     double cruizeT = cruize_dist / attSpeed;
     return cruizeT + 4.0 * accPath / attSpeed;
   }

@@ -1,9 +1,10 @@
 #include "dto/SimStatistics.hpp"
 #include "config/ComponentFactory.hpp"
 #include "config/defines.hpp"
+#include "config/ManualSimulationClock.hpp"
 #include "core/MissionProcessor.hpp"
 
-#include <exception>
+
 #include <iomanip>
 #include <iostream>
 #include <cmath>
@@ -36,7 +37,7 @@ auto main() -> int
 {
 #ifdef TESTOUT_TO_FILE  // save console to file
   std::streambuf* original_buf = nullptr;
-  std::ofstream output_file(DEBUG_FILE_NAME);
+  std::ofstream output_file(kDebugTxtPath);
   if (!output_file.is_open()) {
     std::cerr << "Unable to open debug output file\n";
     return 1;
@@ -51,25 +52,28 @@ auto main() -> int
   
   try {
     ComponentFactory factory;
-    auto simClock = factory.createSimulationClock(ComponentFactory::SimulationClockType::MANUAL);
+    auto simClock = std::make_unique<ManualSimulationClock>(); 
+
     auto confLoader = factory.createLoader(ComponentFactory::LoaderType::FILE);
-    auto solver = factory.createSolver(ComponentFactory::SolverType::ANALYTICAL);
-    auto tgtProvider = factory.createProvider(ComponentFactory::ProviderType::JSON, defines::kInputPath);
+    auto solver = factory.createSolver(ComponentFactory::SolverType::TABLE ); //ANALYTICAL TABLE
+    auto tgtProvider = factory.createProvider(ComponentFactory::ProviderType::JSON, defines::kTargetsPath);
 
     if (simClock == nullptr || confLoader == nullptr || solver == nullptr || tgtProvider == nullptr) {
       throw std::runtime_error("One or more components unavailable");
     }
-
+    tgtProvider->init(simClock.get());
     core::MissionProcessor processor(std::move(tgtProvider), std::move(solver), 
-    std::move(confLoader), std::move(simClock));
+    std::move(confLoader), simClock.get());
 
-    processor.init(defines::kInputPath);
+    const dto::MissionConfig* mcnf = processor.init(); 
+    simClock->reset(mcnf->time_step, mcnf->tgt_time_step);
 
     while (processor.hasNext()) {
       if (!processor.step()) {
         LOG("\nStatistics: " << processor.getSimulationStatistics());
         throw std::runtime_error("Simulation time is over!");
       };
+      simClock->advance();
     }
 
     result = 0;

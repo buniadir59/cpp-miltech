@@ -1,6 +1,5 @@
 #pragma once
 
-#include "dto/SimStatistics.hpp"
 #include "core/TargetControl.hpp"
 #include "core/DroneControl.hpp"
 #include "core/Mission.hpp"
@@ -9,7 +8,6 @@
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <vector>
-#include <string>
 
 namespace dto {
 struct MissionConfig;
@@ -21,6 +19,10 @@ class IBallisticSolver;
 class IConfigLoader;
 class ISimulationClock;
 
+namespace dto {
+struct SimStatistics;
+}
+
 namespace core {
 
 // Приймає компоненти через вказівники на інтерфейси (патерн Стратегія)
@@ -29,8 +31,8 @@ namespace core {
 class MissionProcessor {
   std::unique_ptr<ITargetProvider> targets_;
   std::unique_ptr<IConfigLoader> loader_;
-  std::unique_ptr<IBallisticSolver> solver_;
-  std::unique_ptr<ISimulationClock> clock_;
+  std::unique_ptr<IBallisticSolver> solver_; 
+  const ISimulationClock* simClock{nullptr};  // const - only reads time
 
   nlohmann::json j_out;
 
@@ -44,7 +46,6 @@ class MissionProcessor {
 
   std::vector<TargetControl> targetDepo;
 
-  dto::SimStatistics stats{};
   const dto::MissionConfig* mconf = nullptr;
   const dto::Ammo* ammo = nullptr;
 
@@ -59,7 +60,7 @@ class MissionProcessor {
   auto pushStepToJSON() -> void;  // Записати дані кроку у вихідн. JSON файл
 
 public:
-  auto init(const std::string& configSource) -> void; // Завантажити конфіг, підготувати дані ітерації
+  auto init() -> const dto::MissionConfig*; // Завантажити конфіг, підготувати дані ітерації
   auto hasNext() -> bool;               // Перевірити, чи є ще необроблені цілі
   void reset() { currentTgtTag = 0; };  // Почати ітерацію спочатку
   void changeSolver(std::unique_ptr<IBallisticSolver> solver)
@@ -71,15 +72,15 @@ public:
   bool step();  // Обробити наступну ціль: взяти дані з ITargetProvider, обчислити через IBallisticSolver,
                 // return false if time is out
 
-  auto getSimulationStatistics() -> dto::SimStatistics&;
+  auto getSimulationStatistics() -> dto::SimStatistics;
 
   MissionProcessor(std::unique_ptr<ITargetProvider> targets, 
     std::unique_ptr<IBallisticSolver> solver, 
-    std::unique_ptr<IConfigLoader> loader,  std::unique_ptr<ISimulationClock> clock)
+    std::unique_ptr<IConfigLoader> loader,  ISimulationClock* clock)
     : targets_(std::move(targets))
     , loader_(std::move(loader))
     , solver_(std::move(solver))
-    , clock_(std::move(clock))
+    , simClock(clock)
     , mission{solver_.get()} {};
 
   ~MissionProcessor();

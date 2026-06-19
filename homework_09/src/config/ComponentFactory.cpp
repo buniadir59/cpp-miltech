@@ -2,26 +2,14 @@
 #include "interfaces/IBallisticSolver.hpp"
 #include "interfaces/ITargetProvider.hpp"
 #include "interfaces/IConfigLoader.hpp"
-#include "interfaces/ISimulationClock.hpp"
 #include "solvers/AnalyticalSolver.hpp"
 #include "solvers/TableSolver.hpp"
 #include "providers/JsonTargetProvider.hpp"
 #include "config/FileConfigLoader.hpp"
-#include "config/ManualSimulationClock.hpp"
+#include "config/defines.hpp"
 
 #include <memory>
 #include <string>
-
-std::unique_ptr<ISimulationClock> ComponentFactory::createSimulationClock(SimulationClockType type)
-{
-  switch (type) {
-    case SimulationClockType::MANUAL:
-      return std::make_unique<ManualSimulationClock>();
-
-    default:
-      return nullptr;
-  }
-}
 
 std::unique_ptr<IBallisticSolver> ComponentFactory::createSolver(SolverType type)
 {
@@ -29,7 +17,7 @@ std::unique_ptr<IBallisticSolver> ComponentFactory::createSolver(SolverType type
     case SolverType::ANALYTICAL:
       return std::make_unique<AnalyticalSolver>();
     case SolverType::TABLE:
-      return std::make_unique<TableSolver>();
+      return std::make_unique<TableSolver>(defines::kBallisticTablePath);
     default:
       return nullptr;
   }

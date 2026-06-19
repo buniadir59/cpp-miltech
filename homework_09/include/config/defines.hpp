@@ -1,7 +1,6 @@
 #pragma once
 
-#include <limits>
-#include <string>
+#include <iostream>  //for cout
 
 /* **** defines and contants **** */
 
@@ -21,19 +20,17 @@
 #define DEBUG(msg)
 #endif
 
-#define DEBUG_FILE_NAME "debug_09.txt"
-
 namespace defines {
 
-const std::string kInputPath = "homework_09/data";
-const char* const kSimulationPath = "simulation.json";
+inline auto kSimulationPath = "simulation.json";
+inline auto kDebugTxtPath = "homework_09/debug_09.txt";
+
+inline auto kBallisticTablePath = "homework_09/data/ballistic_table.txt";
+inline auto kConfigPath = "homework_09/data/config.json";
+inline auto kAmmoTablePath = "homework_09/data/ammo.json";
+inline auto kTargetsPath = "homework_09/data/targets.json";
 
 // ## max number of simulation steps if any target not hit
-constexpr int kMaxSteps = 10000;
-
-constexpr int kMaxTargets = 32;        // max number of targets
-constexpr int kMaxRecalculations = 6;  // for drop route
-
-constexpr double eps = std::numeric_limits<double>::epsilon();
+inline constexpr int kMaxSteps = 10000;
 
 }  // namespace defines

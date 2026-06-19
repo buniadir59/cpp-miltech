@@ -1,21 +1,17 @@
 #include "config/FileConfigLoader.hpp"
+#include "config/defines.hpp"
 #include "dto/Ammo.hpp"
 #include "dto/MissionConfig.hpp"
 
 #include <nlohmann/json.hpp>
-#include <filesystem>
 #include <fstream>
 #include <exception>
 #include <string>
 #include <unordered_map>
+#include <iostream>
 
 using json = nlohmann::json;
 
-namespace {
-const char* const kAmmosFileName = "ammo.json";
-const char* const kInputFileName = "config.json";
-
-}  // namespace
 
 auto FileConfigLoader::validate_input() const -> void
 {
@@ -35,11 +31,10 @@ auto FileConfigLoader::validate_input() const -> void
 auto FileConfigLoader::load(const std::string& source) -> bool
 {
   // first, read input.json
-  std::filesystem::path full_path = std::filesystem::path(source) / kInputFileName;
-  std::ifstream json_file(full_path);
+  std::ifstream json_file(source);
 
   if (!json_file.is_open()) {
-    std::cerr << "Unable to open: " << full_path << '\n';
+    std::cerr << "Unable to open: " << source << '\n';
     return false;
   }
 
@@ -67,16 +62,15 @@ auto FileConfigLoader::load(const std::string& source) -> bool
     validate_input();
   }
   catch (const std::exception& error) {
-    std::cerr << "Invalid or incomplete data in " << full_path << '\n';
+    std::cerr << "Invalid or incomplete data in " << source << '\n';
     return false;
   }
 
   // second, read ammo.json
-  full_path = std::filesystem::path(source) / kAmmosFileName;
-  std::ifstream json_ammo_file(full_path);
+  std::ifstream json_ammo_file(defines::kAmmoTablePath);
 
   if (!json_ammo_file.is_open()) {
-    std::cerr << "Unable to open: " << full_path << '\n';
+    std::cerr << "Unable to open: " << defines::kAmmoTablePath << '\n';
     return false;
   }
 
@@ -110,7 +104,7 @@ auto FileConfigLoader::load(const std::string& source) -> bool
   }
 
   catch (const std::exception& error) {
-    std::cerr << "Invalid or incomplete data in " << full_path << '\n';
+    std::cerr << "Invalid or incomplete data in " << defines::kAmmoTablePath << '\n';
     return false;
   }
 

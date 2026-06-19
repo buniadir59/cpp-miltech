@@ -1,7 +1,7 @@
 #include "math/point_math.hpp"
 
 #include <cmath>
-
+#include <ostream>
 /*
   Point
 */
@@ -12,6 +12,13 @@ namespace {
 const double kAngleTolerance = std::atan(0.0003);  // = ( 0.1 * 3 / 1000 );
 }  // namespace
 
+
+auto Point::operator==(const Point& other) const -> bool
+{  // eps doesnt make sense - it shall be accuracy ... implement near()
+  constexpr double eps = 1e-9;
+  return std::abs(x - other.x) < eps && std::abs(y - other.y) < eps;
+}
+ 
 auto operator+(Point a1, const Point& a2) -> Point
 {
   a1 += a2;
@@ -74,10 +81,10 @@ auto rad2Grad(double ang) -> int
 {  // utility for better human presentation
   return static_cast<int>(round(ang / M_PI * 180));
 }
-
+ 
 auto operator<<(std::ostream& os, const Point& p) -> std::ostream&
 {
-  int prec = &os == &std::cout ? 1 : 2;
+  int prec = 1; //&os == &std::cout ? 1 : 2;
   return os << "( " << fixNegativeZero(p.x, prec) << ", " << fixNegativeZero(p.y, prec) << " )";
 }
 }  // namespace pointmath
