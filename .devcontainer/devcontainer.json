@@ -77,6 +77,7 @@
         "C_Cpp.intelliSenseEngine": "disabled",
         "[cpp]": {
           "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
+          "editor.formatOnSave": true,
           "editor.quickSuggestions": {
             "other": "on",
             "comments": "off",
@@ -84,7 +85,8 @@
           }
         },
         "[cmake]": {
-          "editor.defaultFormatter": "cheshirekow.cmake-format"
+          "editor.defaultFormatter": "cheshirekow.cmake-format",
+          "editor.formatOnSave": true
         },
         // cmake-format читає конфіг, який Dockerfile копіює в /.
         "cmakeFormat.args": [
