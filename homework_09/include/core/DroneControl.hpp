@@ -1,5 +1,6 @@
 #pragma once
 
+#include "drone/Stopped.hpp"
 #include "interfaces/IDroneState.hpp"
 #include "math/point_math.hpp"
 #include "math/angle_math.hpp"
@@ -11,48 +12,21 @@
 
 namespace core {
 
-// enum DrState: std::uint8_t { STOPPED = 0, ACCELERATING, DECELERATING, TURNING, MOVING }; //TODO
 
 class DroneControl {
-  /*   double angSpeed;                // Кутова швидкість повороту (рад/с)
-    anglemath::AngleRad destAngle;  // set under mission control */
   drone::DroneContext ctx;
-  std::unique_ptr<IDroneState> state;  // TODO //DrState state = STOPPED;  // assume initial state is full stop
+  std::unique_ptr<IDroneState> state; 
 
 public:
-  /*   // constant - obtained from input data:
-    double alt;        // altitude
-    double accPath;    // acceler path
-    double attSpeed;   // attack speed
-    double turnThrld;  // Пороговий кут для зупинки (рад)
-    // constant - calculated once and saved for future use
-    double kAcceleration;  // calculated from acceler time and attack speed
-    // changing during simulation:
-    pointmath::Point coord{};         // initialized from input file
-    anglemath::AngleRad dirRad{0.0};  // напрямок дрона (радіани, від осі X) //initialized from input file
-    pointmath::Point dirXY{};         // direction by X and Y (as Point)  according to dirAngleRad
+  auto goIdle() -> void;             // auto startAccelerating() -> void;
+  auto startDecelerating() -> void;  // TODO remove
+  auto startTurning() -> void;       // TODO remove
 
-    double speed = 0.0;  // current dr speed, m/s */
+  void setDroneDirection(double aR) { return ctx.setDroneDirection(aR); };  // TODO ?
 
-  /*   auto next = state->execute(ctx);   //TODO
-    if (next) {
-      state = std::move(next);
-    } */
-
-  [[nodiscard]] auto getPosition() const -> const pointmath::Point& { return ctx.coord; };
-  [[nodiscard]] auto isMoving() const -> bool; //TODO
-  [[nodiscard]] auto isTurning() const -> bool; //TODO
-  [[nodiscard]] auto isStopped() const -> bool; //TODO
-  [[nodiscard]] auto getDirection() const -> double {return ctx.dirRad.value;};
-  [[nodiscard]] auto getSpeed() const -> double {return ctx.speed;};
-  [[nodiscard]] auto getTurnThreshold() const -> double {return ctx.turnThrld;};
-  [[nodiscard]] auto getStateName() const -> const char* {return state->name();};
- 
-  auto startAccelerating() -> void; //TODO
-  auto startDecelerating() -> void; //TODO
-  auto startTurning() -> void; //TODO
-
-  void setDroneDirection(double aR);
+  [[nodiscard]] auto isTurning() const -> bool;                                     // TODO remove
+  [[nodiscard]] auto getSpeed() const -> double { return ctx.speed; };              // TODO remove
+  [[nodiscard]] auto getTurnThreshold() const -> double { return ctx.turnThrld; };  // TODO remove
 
   DroneControl(const dto::MissionConfig& config)
     : ctx{config.altitude,
@@ -61,19 +35,31 @@ public:
           config.attack_speed,
           config.turn_threshold,
           config.angular_speed,
-          config.initial_direction}
+          config.initial_direction,
+          config.time_step}
   {
+    state = std::make_unique<drone::Stopped>();  // assume initial state is full stop
   }
+  [[nodiscard]] auto getPosition() const -> const pointmath::Point& { return ctx.coord; };  // for M-Proccr -push step
+  [[nodiscard]] auto isMoving() const -> bool;                                              // for miss-n fire
+  [[nodiscard]] auto getDirection() const -> double { return ctx.dirRad.value; };           // for M-Proccr -push step
+  [[nodiscard]] auto getStateName() const -> const char* { return state->name(); };         // for M-Proccr -push step
+  [[nodiscard]] auto droneStateToStr() const -> const char*;
+  [[nodiscard]] auto getAimPoint(double ammoHDist) -> pointmath::Point { return ctx.coord + ctx.dirXY * ammoHDist; };
 
-  auto getTimeToGainAttackSpeed() const -> double;
-  auto getMinTimeToTurn(anglemath::AngleRad delta_angle, double time_on_move, double time_step) const -> double;
-  auto getTurnTime(anglemath::AngleRad delta) const -> double;
-  auto getTimeToFlyToInterimPoint(double dist) const -> double;
-  auto getTimeToFlyToFP(double dist_to_fp) const -> double;
+  auto setDestinationAngle(double value) -> void { ctx.destAngle = value; };
+  auto setDestinationPoint(pointmath::Point dest, bool has_interim_p) -> void;
 
-  auto move(double dt) -> void;
-  auto getAimPoint(double ammoHDist) -> pointmath::Point { return ctx.coord + ctx.dirXY * ammoHDist; };
-  auto droneStateToStr() const -> const char*;
+
+  auto move() -> void;
+  auto getTurnTime(anglemath::AngleRad delta) const -> double { return ctx.getTurnTime(delta); };  // to calculate miss-n time
+  auto getMinTimeToTurn(anglemath::AngleRad delta_angle, double time_on_move) const -> double {return ctx.getMinTimeToTurn(delta_angle, time_on_move); };
+
+  // TODO review visibility
+  // auto getTimeToGainAttackSpeed() const -> double;
+
+  auto getTimeToFlyToInterimPoint(double dist) const -> double { return ctx.getTimeToFlyToInterimPoint(dist); };  // TODO
+  auto getTimeToFlyToFP(double dist_to_fp) const -> double { return ctx.getTimeToFlyToFP(dist_to_fp); };          // TODO
 };
 
 }  // namespace core

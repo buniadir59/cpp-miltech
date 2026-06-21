@@ -1,6 +1,7 @@
 #pragma once
 
 #include "interfaces/IBallisticSolver.hpp"
+#include "dto/DropSolution.hpp"
 #include "math/point_math.hpp"
 #include "math/angle_math.hpp"
 
@@ -25,7 +26,7 @@ class Mission {
   TargetControl* currTgt = nullptr;
 
   double tgtTimeStep{0.0};
-  double time_step{0.0};
+  double time_step{0.0}; //for timer
   double time_accuracy{0.0};
   double time_total{0.0};
   double time_to_interim{0.0};  // time to reach interim point
@@ -38,6 +39,7 @@ class Mission {
 
   anglemath::AngleRad destAngle;  // direction to destination, calculated at start of mission
   pointmath::Point destPoint;
+
   DroneControl* drone = nullptr;
 
   auto calculateMission() -> bool;

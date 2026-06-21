@@ -1,6 +1,7 @@
 #include "solvers/TableSolver.hpp"
 #include "dto/DropSolution.hpp"
 #include "dto/BallisticsInput.hpp"
+#include "dto/BallisticResult.hpp"
 #include "math/point_math.hpp"
 
 #include <cmath>
@@ -13,8 +14,7 @@ constexpr double kEpsilon = std::numeric_limits<double>::epsilon();
 
 TableSolver::TableSolver(const char* source)
 {
-  if (!table.load(source) ) 
-  {
+  if (!table.load(source)) {
     throw std::runtime_error("Error reading ballistic table");
   }
 }
@@ -32,15 +32,10 @@ void TableSolver::validate_input() const
   if (input.attack_speed <= 0.0) {
     throw std::invalid_argument("Attack speed must be positive");
   }
-
-  if (input.acceleration_path <= 0.0) {
-    throw std::invalid_argument("Acceleration path must be positive");
-  }
 }
 
 auto TableSolver::solve(const pointmath::Point& drone_position, const pointmath::Point& target_position) -> dto::DropSolution
 {
-  validate_input();
   dto::DropSolution drop_route{};
   Result ball_res = table.lookup({input.drone_z, input.attack_speed, input.mass, input.drag, input.lift});
   drop_route.fall_time_s = ball_res.ffTime;
@@ -81,5 +76,19 @@ auto TableSolver::solve(const pointmath::Point& drone_position,
                         const dto::Ammo& ammo) -> dto::DropSolution
 {
   input.setAmmoParams(ammo).setDroneAccelerationPath(acc_path).setDroneAltitude(altitude_m).setDroneAttackSpeed(att_speed);
+  validate_input();
+  if (input.acceleration_path <= 0.0) {
+    throw std::invalid_argument("Acceleration path must be positive");
+  }
   return solve(drone_position, target_position);
+}
+
+auto TableSolver::solveAmmo(double altitude_m, double att_speed, const dto::Ammo& ammo) -> dto::BallisticResult
+{
+  input.setAmmoParams(ammo).setDroneAltitude(altitude_m).setDroneAttackSpeed(att_speed);
+  validate_input();
+  dto::BallisticResult result{};
+  result.ffTime = calculate_free_fall_time_s();
+  result.hDist = calculate_horizontal_fall_distance_m(result.ffTime);
+  return result;
 }

@@ -13,8 +13,8 @@
 
    1. Implemented smart pointers - change ownership
    2. Updated ammo parameters
-   3.  Added new IBallisticSolver implementation class - TableSolver
-   4. TODO Implemeted Drone State Automate
+   3. Added new IBallisticSolver implementation class - TableSolver
+   4. Implemeted Drone State Automate
 
 
 ## Структура репо

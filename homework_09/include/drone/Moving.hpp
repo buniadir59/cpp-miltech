@@ -5,8 +5,8 @@
 namespace drone {
 
 
-class Moving final :  IDroneState {
-
+class Moving final : public IDroneState {
+public:
     std::unique_ptr<IDroneState> execute(drone::DroneContext& ctx);
     const char* name() const { return "MOVING";};
 };

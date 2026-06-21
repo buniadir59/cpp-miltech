@@ -1,7 +1,9 @@
 #pragma once
 
+#include "dto/BallisticResult.hpp"
 #include "interfaces/IBallisticSolver.hpp"
 #include "dto/BallisticsInput.hpp"
+
 
 class AnalyticalSolver : public IBallisticSolver {
   void validate_input() const;
@@ -18,4 +20,7 @@ public:
              double att_speed,
              double acc_path,
              const dto::Ammo& ammo) -> dto::DropSolution override;
+ auto solveAmmo(double altitude_m,
+                     double att_speed,
+                     const dto::Ammo& ammo) -> dto::BallisticResult override;             
 };

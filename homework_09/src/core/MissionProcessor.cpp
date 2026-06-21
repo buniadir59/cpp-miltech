@@ -149,7 +149,7 @@ bool MissionProcessor::step()
         }
       }
       else {  // no available targets, wait moving until farther (at minimum distance or more)
-        drone->startAccelerating();
+        drone->goIdle(); //startAccelerating();
         break;
       }
     }
@@ -168,8 +168,7 @@ bool MissionProcessor::step()
   }
 
   ++stepCurrent;
-  drone->move(mconf->time_step);
-  // clock_->advance();
+  drone->move();
   return true;
 }
 

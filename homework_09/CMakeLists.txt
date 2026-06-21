@@ -19,6 +19,12 @@ add_library(
     src/core/TargetControl.cpp
     src/config/ComponentFactory.cpp
     src/solvers/TableSolver.cpp
+    src/drone/DroneContext.cpp
+    src/drone/Stopped.cpp
+    src/drone/Turning.cpp
+    src/drone/Accelerating.cpp
+    src/drone/Decelerating.cpp
+    src/drone/Moving.cpp
     )
 
 target_include_directories(

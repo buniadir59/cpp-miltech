@@ -1,4 +1,5 @@
 #include "solvers/AnalyticalSolver.hpp"
+#include "dto/BallisticResult.hpp"
 #include "dto/DropSolution.hpp"
 #include "dto/BallisticsInput.hpp"
 #include "math/point_math.hpp"
@@ -96,15 +97,11 @@ void AnalyticalSolver::validate_input() const
   if (input.attack_speed <= 0.0) {
     throw std::invalid_argument("Attack speed must be positive");
   }
-
-  if (input.acceleration_path <= 0.0) {
-    throw std::invalid_argument("Acceleration path must be positive");
-  }
 }
 
 auto AnalyticalSolver::solve(const pointmath::Point& drone_position, const pointmath::Point& target_position) -> dto::DropSolution
 {
-  validate_input();
+  // validate_input();
   dto::DropSolution result{};
 
   result.fall_time_s = calculate_free_fall_time_s();
@@ -150,5 +147,19 @@ auto AnalyticalSolver::solve(const pointmath::Point& drone_position,
                              const dto::Ammo& ammo) -> dto::DropSolution
 {
   input.setAmmoParams(ammo).setDroneAccelerationPath(acc_path).setDroneAltitude(altitude_m).setDroneAttackSpeed(att_speed);
+  validate_input();
+  if (input.acceleration_path <= 0.0) {
+    throw std::invalid_argument("Acceleration path must be positive");
+  }
   return solve(drone_position, target_position);
+}
+
+auto AnalyticalSolver::solveAmmo(double altitude_m, double att_speed, const dto::Ammo& ammo) -> dto::BallisticResult
+{
+  input.setAmmoParams(ammo).setDroneAltitude(altitude_m).setDroneAttackSpeed(att_speed);
+  validate_input();
+  dto::BallisticResult result{};
+  result.ffTime = calculate_free_fall_time_s();
+  result.hDist = calculate_horizontal_fall_distance_m(result.ffTime);
+  return result;
 }
