@@ -2,14 +2,12 @@
 #include "drone/DroneContext.hpp"
 #include "drone/Decelerating.hpp"
 
-
 #include <memory>
 
 namespace drone {
 
 std::unique_ptr<IDroneState> Moving::execute(DroneContext& ctx)
 {
-  ctx.updateDestDistAndDeltaAngle();
   if (ctx.execMoving()) {
     return std::make_unique<Decelerating>();
   }

@@ -1,32 +1,59 @@
 #pragma once
 
 #include "drone/Stopped.hpp"
-#include "interfaces/IDroneState.hpp"
 #include "math/point_math.hpp"
 #include "math/angle_math.hpp"
 #include "dto/MissionConfig.hpp"
 #include "drone/DroneContext.hpp"
 
 #include <memory>
-// #include <cstdint>
+
+namespace dto {
+struct Ammo;
+}
+
+class IDroneState;
 
 namespace core {
 
-
 class DroneControl {
   drone::DroneContext ctx;
-  std::unique_ptr<IDroneState> state; 
+  std::unique_ptr<IDroneState> state;
 
 public:
-  auto goIdle() -> void;             // auto startAccelerating() -> void;
-  auto startDecelerating() -> void;  // TODO remove
-  auto startTurning() -> void;       // TODO remove
+  auto setDestToAttack(pointmath::Point dest, double angle) -> void  // for calc route
+  {
+    ctx.setDestToFP(dest);
+    ctx.angleToTLpos = angle;
+  };
 
-  void setDroneDirection(double aR) { return ctx.setDroneDirection(aR); };  // TODO ?
+  auto flyAway() -> void  // for break Mission
+  {
+    ctx.setDestToFP(ctx.coord + ctx.dirXY * ctx.accPath);
+    ctx.angleToTLpos = ctx.dirRad;
+  };
 
-  [[nodiscard]] auto isTurning() const -> bool;                                     // TODO remove
-  [[nodiscard]] auto getSpeed() const -> double { return ctx.speed; };              // TODO remove
-  [[nodiscard]] auto getTurnThreshold() const -> double { return ctx.turnThrld; };  // TODO remove
+  auto execFly() -> void;  // fly following destination params
+
+  auto setSolver(IBallisticSolver* s) -> bool
+  {
+    if (s == nullptr) {
+      return false;
+    }
+
+    ctx.solver = s;
+    return ctx.updateBasicAmmoRes();
+  };
+
+  auto setAmmo(const dto::Ammo* a) -> bool
+  {
+    if (a == nullptr) {
+      return false;
+    }
+
+    ctx.ammo = a;
+    return ctx.updateBasicAmmoRes();
+  };
 
   DroneControl(const dto::MissionConfig& config)
     : ctx{config.altitude,
@@ -40,26 +67,26 @@ public:
   {
     state = std::make_unique<drone::Stopped>();  // assume initial state is full stop
   }
+
+  // below are for M-Proccr -push step
   [[nodiscard]] auto getPosition() const -> const pointmath::Point& { return ctx.coord; };  // for M-Proccr -push step
-  [[nodiscard]] auto isMoving() const -> bool;                                              // for miss-n fire
   [[nodiscard]] auto getDirection() const -> double { return ctx.dirRad.value; };           // for M-Proccr -push step
-  [[nodiscard]] auto getStateName() const -> const char* { return state->name(); };         // for M-Proccr -push step
-  [[nodiscard]] auto droneStateToStr() const -> const char*;
-  [[nodiscard]] auto getAimPoint(double ammoHDist) -> pointmath::Point { return ctx.coord + ctx.dirXY * ammoHDist; };
+  [[nodiscard]] auto getStateName() const -> const char* { return state->name(); };
+  [[nodiscard]] auto getInstantAimPoint() -> pointmath::Point { return ctx.coord + ctx.dirXY * ctx.ballResult.hDist; };
 
-  auto setDestinationAngle(double value) -> void { ctx.destAngle = value; };
-  auto setDestinationPoint(pointmath::Point dest, bool has_interim_p) -> void;
+  // below are to calculate attack route
+  [[nodiscard]] auto getAttSpeed() const -> double { return ctx.attSpeed; }
+  [[nodiscard]] auto getTimeToGainAttSpeed() const -> double { return ctx.timeToGainAttSpeed; };
+  [[nodiscard]] auto getDistToGainAttSpeed() const -> double { return ctx.distToGainAttSpeed; };
+  [[nodiscard]] auto getBaseAmmoFFTime() -> double { return ctx.ballResult.ffTime; };
+  [[nodiscard]] auto getBaseAmmoFFDist() -> double { return ctx.ballResult.hDist; };
+  [[nodiscard]] auto getMinTimeToTurn(anglemath::AngleRad delta_angle, double time_on_move) const -> double
+  {
+    return ctx.getMinTimeToTurn(delta_angle, time_on_move);
+  };
 
+  [[nodiscard]] auto getInstantAmmoFFTime() -> double { return ctx.ammoBaseFFTime; };  // to estimate fire condition
 
-  auto move() -> void;
-  auto getTurnTime(anglemath::AngleRad delta) const -> double { return ctx.getTurnTime(delta); };  // to calculate miss-n time
-  auto getMinTimeToTurn(anglemath::AngleRad delta_angle, double time_on_move) const -> double {return ctx.getMinTimeToTurn(delta_angle, time_on_move); };
-
-  // TODO review visibility
-  // auto getTimeToGainAttackSpeed() const -> double;
-
-  auto getTimeToFlyToInterimPoint(double dist) const -> double { return ctx.getTimeToFlyToInterimPoint(dist); };  // TODO
-  auto getTimeToFlyToFP(double dist_to_fp) const -> double { return ctx.getTimeToFlyToFP(dist_to_fp); };          // TODO
 };
 
 }  // namespace core

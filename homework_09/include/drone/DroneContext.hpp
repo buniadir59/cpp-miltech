@@ -1,38 +1,52 @@
 #pragma once
 
+#include "interfaces/IBallisticSolver.hpp"
+#include "dto/BallisticResult.hpp"
 #include "math/angle_math.hpp"
 #include "math/point_math.hpp"
 
+namespace dto {
+struct Ammo;
+}
+
 namespace drone {
 
-// position, speed, direction, direction at destination point, direction to target???
-// drone config ?
 struct DroneContext {
+  IBallisticSolver* solver = nullptr;
+  const dto::Ammo* ammo = nullptr;
+
   // constant - obtained from input data:
-  double alt;        // altitude
-  double accPath;    // acceler path
-  double attSpeed;   // attack speed
-  double turnThrld;  // Пороговий кут для зупинки (рад)
-  double angSpeed;   // Кутова швидкість повороту (рад/с)
-
-  double deltaTime = 0.0;  // for calculating time dependent values (turning, moving etc),set by mission processor
-
+  double alt;              // altitude
+  double accPath;          // acceler path
+  double attSpeed;         // attack speed
+  double turnThrld;        // Пороговий кут для зупинки (рад)
+  double angSpeed;         // Кутова швидкість повороту (рад/с)
+  double kTimeStep = 0.0;  // for calculating time dependent values (turning, moving etc),set by mission processor
   // constant - calculated once and saved for future use
   double kAcceleration;  // calculated from acceler time and attack speed
+  double kAccTime;
+  double ammoBaseFFTime = 0.0;  // based on mconf altitude & attack speed
+  double ammoBaseHDist = 0.0;   // based on mconf alt and attack speed
 
   // changing during simulation:
-  double speed = 0.0;                // current dr speed, m/s
+  double speed = 0.0;  // current dr speed, m/s
+  double timeToGainAttSpeed;
+  double distToGainAttSpeed = accPath;
+  double timeToStop = 0.0;
+  double distToStop = 0.0;
+
   anglemath::AngleRad dirRad;        // напрямок дрона (радіани, від осі X) //initialized from input file
   pointmath::Point coord{};          // initialized from input file
   pointmath::Point dirXY{0.0, 0.0};  // direction by X and Y (as Point)  according to dirAngleRad
+
   // where and how to go - set under mission control
-  anglemath::AngleRad destAngle{0.0};
+  anglemath::AngleRad angleToTLpos{0.0};
   pointmath::Point destPoint;
-  bool hasToTurn = false; //destination is an interim point, otherwise firepoint
-  double maxSpeed = 0.0; //maximum speed before decelerating when moving to interim point
-  double distToDest = 0.0;          
-  
-  anglemath::AngleRad deltaAngle{0.0};  // = anglemath::AngleRad(ctx.destAngle - ctx.dirRad);
+  bool hasToTurn = false;  // destination is an interim point, otherwise firepoint
+  double maxSpeed = 0.0;   // maximum speed before decelerating when moving to interim point
+
+  dto::BallisticResult ballResult;
+
   DroneContext(double alt,
                pointmath::Point coord,
                double accPath,
@@ -46,43 +60,39 @@ struct DroneContext {
     , attSpeed(attSpeed)
     , turnThrld(turnThrld)
     , angSpeed(angSpeed)
-    , deltaTime(time_step)
+    , kTimeStep(time_step)
     , dirRad(initDir)
     , coord(coord)
   {
     dirXY = pointmath::cossin(dirRad.value);
-    kAcceleration = attSpeed * attSpeed / (2 * accPath);
+
+    kAccTime = accPath * 2.0 / attSpeed;
+    kAcceleration = attSpeed / kAccTime;
     // drone is idle
-    destAngle = dirRad;
+    angleToTLpos = dirRad;
     destPoint = coord;
+    timeToGainAttSpeed = kAccTime;
+    distToGainAttSpeed = accPath;
+    timeToStop = 0.0;
+    distToStop = 0.0;
   }
 
-  void updateDestDistAndDeltaAngle()
-  {
-    distToDest = pointmath::getLength(destPoint - coord);
-    deltaAngle = anglemath::AngleRad(destAngle - dirRad);
-  }
+  auto setDestToFP(pointmath::Point dest) -> void;
 
-  auto execMoving()-> bool;
-  auto execAccelerating()-> bool; //return true if completed
-  auto execDecelerating()-> bool; //return true if completed
-  auto execTurning() -> bool;  
+  auto updateBasicAmmoRes() -> bool;  // for set solver and set ammo
 
-  void adjustDirection() { setDroneDirection(deltaAngle.value < 0.0 ? dirRad.value - turnThrld : dirRad.value + turnThrld); }
+  auto _updateSpeedDependentCtx() -> void;  // at the end of acc & decel execution
+  void _setDir(double aR);                  // for exec turning & adjust dir
+  auto _adjustDir() -> void;                // for exec mov/decel/accel
 
-  void setDroneDirection(double aR)
-  {
-    dirRad = aR;
-    dirXY = pointmath::cossin(dirRad.value);
-  };
+  // all below return true if completed
+  auto execMoving() -> bool;
+  auto execAccelerating() -> bool;
+  auto execDecelerating() -> bool;
+  auto execTurning() -> bool;
 
   auto getMinTimeToTurn(anglemath::AngleRad delta_angle, double time_on_move) const -> double;
   auto getTurnTime(anglemath::AngleRad delta) const -> double;
-  auto getTimeToGainAttackSpeed() const -> double { return speed == attSpeed ? 0.0 : (attSpeed - speed) / kAcceleration; }
-
-  auto getTimeToFlyToFP(double dist_to_fp) const -> double;
-
-  auto getTimeToFlyToInterimPoint(double dist) const -> double;
 
 };  // eo struct
 

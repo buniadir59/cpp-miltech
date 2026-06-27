@@ -13,15 +13,16 @@ class TargetControl {  // current information on target available to mission
 
 public:
   TgtState state = UNKNWN;
-  double speed;  // tgt sp
-  dto::Target now;
+  double speed;     // tgt sp,  updated with update()
+  dto::Target now;  // updated with update()
 
   pointmath::Point hitCoord;  // coordinate of ammo hit the ground
   double hitTime;             // time ammo hit the ground
 
-  auto update(double tgtTimeStep) -> void;
-  auto getAccuracyS(double acc_m) -> double;
-
+  auto update(double tgtTimeStep) -> void; //called every step to obtain new position and speed params 
+  
+  auto getAccuracyS(double acc_m) -> double;//returns time for which the target makes acc_m distance
+  auto getLeadPos(double lead_time_ratio) -> pointmath::Point;
   [[nodiscard]] auto targetStateToStr() const -> const char*
   {
     switch (state) {

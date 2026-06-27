@@ -3,6 +3,7 @@
 #include <iostream>  //for cout
 
 /* **** defines and contants **** */
+// TODO [[maybe_unused]] auto& dummy = std::cout; //"костиль"
 
 // #define TESTOUT_TO_FILE
 #define ENABLE_LOG 1

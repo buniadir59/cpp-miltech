@@ -15,7 +15,6 @@ add_library(
     src/config/FileConfigLoader.cpp
     src/core/MissionProcessor.cpp
     src/core/DroneControl.cpp
-    src/core/Mission.cpp
     src/core/TargetControl.cpp
     src/config/ComponentFactory.cpp
     src/solvers/TableSolver.cpp
@@ -25,6 +24,9 @@ add_library(
     src/drone/Accelerating.cpp
     src/drone/Decelerating.cpp
     src/drone/Moving.cpp
+    src/mission/MissionCtx.cpp
+    src/mission/Idle.cpp
+    src/mission/Attack.cpp
     )
 
 target_include_directories(

@@ -2,13 +2,11 @@
 
 #include "interfaces/IConfigLoader.hpp"
 #include "interfaces/ITargetProvider.hpp"
-
+#include "interfaces/IBallisticSolver.hpp"
 #include <memory>
 #include <cstdint>
 #include <string>
 
-
-class IBallisticSolver;
 
 namespace dto {
 

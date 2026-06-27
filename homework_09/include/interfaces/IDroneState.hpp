@@ -1,8 +1,10 @@
 #pragma once
 
-#include "drone/DroneContext.hpp"
-
 #include <memory>
+
+namespace drone {
+struct DroneContext;
+}
 
 class IDroneState {
 public:

@@ -38,9 +38,15 @@ homework_09/
 │ | └── ComponentFactory.hpp
 │ ├── core
 │ | ├── MissionProcessor.hpp
-│ | ├── Mission.hpp
 │ | ├── DroneControl.hpp
 │ | └── TargetControl.hpp
+│ ├── drone
+│ | ├── Acceleratin.hpp
+│ | ├── Decelerating.hpp
+│ | ├── DroneContext.hpp
+│ | ├── Moving.hpp
+│ | ├── Stopped.hpp
+│ | └── Turning.hpp
 │ ├── dto
 │ | ├── Ammo.hpp
 │ | ├── BallisticsіInput.hpp
@@ -52,10 +58,16 @@ homework_09/
 │ │ ├── ISimulationClock.hpp
 │ │ ├── ITargetProvider.hpp
 │ │ ├── IBallisticSolver.hpp
+│ │ ├── IDroneState.hpp
+│ │ ├── IMissionState.hpp
 │ │ └── IConfigLoader.hpp
 │ ├── math/
 │ │ ├── angle_math.hpp
 │ │ └── point_math.hpp
+│ ├── mission/
+│ │ ├── Attack.hpp
+│ │ ├── Idle.hpp
+│ │ └── MissionCtx.hpp
 │ ├── providers/
 │ │ └── JsonTargetProvider.hpp
 │ └──  solvers/
@@ -70,12 +82,22 @@ homework_09/
   | └── ComponentFactory.cpp
   ├── core
   │ ├── MissionProcessor.cpp
-  │ ├── Mission.cpp
   │ ├── DroneControl.cpp
   │ └── TargetControl.cpp
+  ├── drone
+  | ├── Accelerating.cpp
+  | ├── Decelerating.cpp
+  | ├── DroneContext.cpp
+  | ├── Moving.cpp
+  | ├── Stopped.cpp
+  | └── Turning.cpp
   ├── math/
   │ ├── angle_math.cpp
   │ └── point_math.cpp
+  │ ├── mission/
+  │ ├── Attack.cpp
+  │ ├── Idle.cpp
+  │ └── MissionCtx.cpp
   ├── providers/
   │ └── JsonTargetProvider.cpp
   └── solvers/

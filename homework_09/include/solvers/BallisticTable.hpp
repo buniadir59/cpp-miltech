@@ -144,10 +144,16 @@ struct BallisticTable {
     data.resize(total);
 
     // Порядок: Z0 → V0 → m → d → l (зовнішній → внутрішній)
-    for (size_t i = 0; i < total; i++)
-      f >> data[i].ffTime >> data[i].hDist;
+    for (size_t i = 0; i < total; i++) {
+      if (f.good()) {  // good() показує стан до наступної операції читання
+        f >> data[i].ffTime >> data[i].hDist;
+      }
+      else {
+        return false;  // next portion can not be read
+      }
+    }
 
-    return f.good();  // all necessary data read without errors(eof, fail, bad bits not set)
+    return !f.fail();  // all necessary data read without errors(fail, bad bits not set)
   }
 
   auto lookup(const std::array<TableValue, kDims>& query) const -> Result

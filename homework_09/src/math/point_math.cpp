@@ -16,7 +16,7 @@ const double kAngleTolerance = std::atan(0.0003);  // = ( 0.1 * 3 / 1000 );
 auto Point::operator==(const Point& other) const -> bool
 {  // eps doesnt make sense - it shall be accuracy ... implement near()
   constexpr double eps = 1e-9;
-  return std::abs(x - other.x) < eps && std::abs(y - other.y) < eps;
+  return std::fabs(x - other.x) < eps && std::fabs(y - other.y) < eps;
 }
  
 auto operator+(Point a1, const Point& a2) -> Point
@@ -58,7 +58,7 @@ auto getLength(const Point& A_B) -> double
 auto getAngle(const Point& A_B) -> double
 {
   double angle = std::atan2(A_B.y, A_B.x);  // overloaded for Point
-  return std::abs(angle) < kAngleTolerance ? 0.0 : angle;
+  return std::fabs(angle) < kAngleTolerance ? 0.0 : angle;
 }
 
 /****
@@ -73,7 +73,7 @@ auto trxPointToDistAngle(const Point& A_B, double& distance, double& angle) -> v
 
 auto fixNegativeZero(double val, int precision) -> double
 {
-  double absV = std::abs(val);
+  double absV = std::fabs(val);
   return absV < 1 / pow(10, precision) ? 0.0 : val;
 }
 

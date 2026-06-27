@@ -22,8 +22,8 @@ auto AnalyticalSolver::calculate_free_fall_time_s() const -> double
   const double b_div_3 = input.mass * (drag_lift_speed - gravity_mass);
   const double c = input.drone_z * input.mass * input.mass * 6.0;
 
-  if (std::abs(a) < kEpsilon) {
-    if (std::abs(b_div_3) < kEpsilon) {
+  if (std::fabs(a) < kEpsilon) {
+    if (std::fabs(b_div_3) < kEpsilon) {
       throw std::domain_error("Unable to calculate fall time");
     }
     const double sqrt_arg = c / (-b_div_3 * 3.0);
@@ -40,7 +40,7 @@ auto AnalyticalSolver::calculate_free_fall_time_s() const -> double
   const double sqrt_value = std::sqrt(-3.0 / p);
   const double acos_argument = 1.5 * q / p * sqrt_value;
 
-  if (std::abs(acos_argument) > 1.0) {
+  if (std::fabs(acos_argument) > 1.0) {
     throw std::domain_error("Simplified method for calculating fall time is not applicable");
   }
 

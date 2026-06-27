@@ -1,4 +1,5 @@
 #include "dto/SimStatistics.hpp"
+#include "dto/MissionConfig.hpp"
 #include "config/ComponentFactory.hpp"
 #include "config/defines.hpp"
 #include "config/ManualSimulationClock.hpp"
@@ -15,29 +16,31 @@
 #include <fstream>
 #endif
 
-namespace dto {
-  struct MissionConfig;
-}
 
 namespace {
 auto operator<<(std::ostream& os, const dto::SimStatistics& s) -> std::ostream&
 {
-  return os << "\nTotal targets: " << s.total << "\nFrom them: \n\tactive:" << s.active << "\n\tunder attack:" << s.underAttack
-            << "\n\tdestroyed:" << s.destroyed << "\nsteps taken:" << s.stepsTaken;
+  return os << "\t\t\t\t\n\tTotal_targets:\t" << s.total 
+            << "\t\t\n\tFrom_them: \t\t\n\t _active:\t" << s.active 
+            << "\n\t _under_attack:\t" << s.underAttack
+            << "\n\t _destroyed:\t" << s.destroyed  
+            << "\n\t _fired:\t" << s.firedCount 
+            << "\n\t _%_success:\t" <<  (s.firedCount == 0 ? 0 : s.destroyed * 100 / s.firedCount) 
+            << "\n\tSteps_taken:\t" << s.steps;
 };
 }  // namespace
 
 // Components are created via ComponentFactory.
 // Ownership is handled by std::unique_ptr, so explicit delete is not needed.
 // Ініціалізація через init()
-// Пошагова обробка всіх цілей (цикл while (mission.hasNext()) { mission.step(); })
+// Пошагова обробка всіх цілей (цикл while (_has Next()) { _step(); })
 
 // ################################################################################
 auto main() -> int
 {
 #ifdef TESTOUT_TO_FILE  // save console to file
   std::streambuf* original_buf = nullptr;
-  std::ofstream output_file(kDebugTxtPath);
+  std::ofstream output_file(defines::kDebugTxtPath);
   if (!output_file.is_open()) {
     std::cerr << "Unable to open debug output file\n";
     return 1;
@@ -55,7 +58,7 @@ auto main() -> int
     auto simClock = std::make_unique<ManualSimulationClock>(); 
 
     auto confLoader = factory.createLoader(ComponentFactory::LoaderType::FILE);
-    auto solver = factory.createSolver(ComponentFactory::SolverType::TABLE ); //ANALYTICAL TABLE
+    auto solver = factory.createSolver(ComponentFactory::SolverType::ANALYTICAL ); //ANALYTICAL TABLE
     auto tgtProvider = factory.createProvider(ComponentFactory::ProviderType::JSON, defines::kTargetsPath);
 
     if (simClock == nullptr || confLoader == nullptr || solver == nullptr || tgtProvider == nullptr) {
@@ -70,15 +73,15 @@ auto main() -> int
 
     while (processor.hasNext()) {
       if (!processor.step()) {
-        LOG("\nStatistics: " << processor.getSimulationStatistics());
-        throw std::runtime_error("Simulation time is over!");
+        LOG("Statistics: " << processor.getSimulationStatistics());
+        throw std::runtime_error("Simulation_time_is_over!");
       };
       simClock->advance();
     }
 
     result = 0;
 
-    LOG("\nStatistics: " << processor.getSimulationStatistics());
+    LOG("Statistics: " << processor.getSimulationStatistics());
 
   }  // eo try
 

@@ -34,7 +34,7 @@ void TableSolver::validate_input() const
   }
 }
 
-auto TableSolver::solve(const pointmath::Point& drone_position, const pointmath::Point& target_position) -> dto::DropSolution
+auto TableSolver::solve(const pointmath::Point& drone_position, const pointmath::Point& target_position)  -> dto::DropSolution
 {
   dto::DropSolution drop_route{};
   Result ball_res = table.lookup({input.drone_z, input.attack_speed, input.mass, input.drag, input.lift});
@@ -87,8 +87,7 @@ auto TableSolver::solveAmmo(double altitude_m, double att_speed, const dto::Ammo
 {
   input.setAmmoParams(ammo).setDroneAltitude(altitude_m).setDroneAttackSpeed(att_speed);
   validate_input();
-  dto::BallisticResult result{};
-  result.ffTime = calculate_free_fall_time_s();
-  result.hDist = calculate_horizontal_fall_distance_m(result.ffTime);
-  return result;
+  Result result = table.lookup({input.drone_z, input.attack_speed, input.mass, input.drag, input.lift});
+
+  return dto::BallisticResult{result.ffTime, result.hDist};
 }

@@ -4,12 +4,14 @@
 #include "dto/SimStatistics.hpp"
 #include "dto/Target.hpp"
 #include "core/TargetControl.hpp"
-#include "core/DroneControl.hpp"
+#include "mission/Idle.hpp"
 #include "interfaces/ITargetProvider.hpp"
 #include "interfaces/IConfigLoader.hpp"
 #include "math/angle_math.hpp"
 #include "math/point_math.hpp"
+#include "config/defines.hpp"
 
+#include <memory>
 #include <nlohmann/json.hpp>
 #include <cmath>
 #include <stdexcept>
@@ -17,7 +19,6 @@
 #include <optional>
 #include <algorithm>
 #include <string>
-#include <iterator>
 
 using json = nlohmann::json;
 
@@ -25,6 +26,15 @@ using Point = pointmath::Point;
 using AngleRad = anglemath::AngleRad;
 
 namespace core {
+
+auto MissionProcessor::getSimulationStatistics() -> const dto::SimStatistics&
+{
+  stats.underAttack = std::count_if(targetDepo.begin(), targetDepo.end(), [](const TargetControl& tgt) { return tgt.state == ATTACKED; });
+  stats.destroyed = std::count_if(targetDepo.begin(), targetDepo.end(), [](const TargetControl& tgt) { return tgt.state == DESTROYED; });
+  stats.total = targetDepo.size();
+  stats.active = stats.total - stats.destroyed - stats.underAttack;
+  return stats;
+}
 
 auto MissionProcessor::init() -> const dto::MissionConfig*
 {
@@ -38,7 +48,13 @@ auto MissionProcessor::init() -> const dto::MissionConfig*
   ammo = &(loader_->getAmmoParams());
 
   drone.emplace(*mconf);
-  mission.init(mconf, &*drone, ammo);
+  mctx.drone = &*drone;
+  // set drone's copy of solver
+  drone->setSolver(solver_.get());
+  drone->setAmmo(ammo);
+
+  mctx.tgtTimeStep = mconf->tgt_time_step;
+  mctx.kAccuracy_m = mconf->time_step * mconf->attack_speed / 2.0;
 
   const auto target_count = targets_->getTargetCount();
   targetDepo.assign(static_cast<std::size_t>(target_count), TargetControl{});
@@ -47,44 +63,16 @@ auto MissionProcessor::init() -> const dto::MissionConfig*
     target.state = ACTIVE;
   }
 
-  currentTgtTag = 0;
-  stepCurrent = 0;
+  stats = {target_count, target_count, 0, 0, 0};
 
+  mstate = std::make_unique<mission::Idle>();
   return &*mconf;
-}
-
-auto MissionProcessor::checkFireResult(TargetControl& tgt) -> bool
-{
-  if (std::abs(simClock->nowS() - tgt.hitTime) <= mconf->time_step / 2.0) {
-    double dist = pointmath::getLength(tgt.now.position - tgt.hitCoord);
-    LOG("@ Hit at dist=" << dist << "@ hit_time=" << tgt.hitTime);
-    if (dist <= mconf->hit_rad) {
-      tgt.state = core::DESTROYED;
-    }
-    else {
-      tgt.state = core::ACTIVE;
-    }
-    return true;
-  }
-  return false;
-}
-
-auto MissionProcessor::getSimulationStatistics() -> dto::SimStatistics
-{
-  int attacked_ = std::count_if(targetDepo.begin(), targetDepo.end(), [](const TargetControl& tgt) { return tgt.state == ATTACKED; });
-  int destroyed_ = std::count_if(targetDepo.begin(), targetDepo.end(), [](const TargetControl& tgt) { return tgt.state == DESTROYED; });
-  int total_ = targetDepo.size();
-  return {.total = total_,
-          .active = total_ - destroyed_ - attacked_,
-          .underAttack = attacked_,
-          .destroyed = destroyed_,
-          .stepsTaken = stepCurrent};
 }
 
 // gets new targets position and velocity
 auto MissionProcessor::updateTargets() -> void
 {
-  for (std::size_t i = 0; i < targetDepo.size(); ++i) {  // update target position by index
+  for (std::size_t i = 0; i < targetDepo.size(); ++i) {  // up-date target position by index
     if (targetDepo[i].state == DESTROYED)
       continue;
 
@@ -96,10 +84,22 @@ auto MissionProcessor::updateTargets() -> void
         break;
 
       case ATTACKED:
-        if (checkFireResult(targetDepo[i])) {
-          LOG(stepCurrent << "@ T#" << i << "@ time=" << simClock->nowS() << "@ Result of attack=" << targetDepo[i].targetStateToStr()
-                          << "@ TPos@" << targetDepo[i].now.position << "@ TSpeed=" << targetDepo[i].speed);
+
+        if (std::fabs(simClock->nowS() - targetDepo[i].hitTime) <= mconf->time_step / 2.0) {
+          stats.firedCount++;
+          double dist = pointmath::getLength(targetDepo[i].now.position - targetDepo[i].hitCoord);
+          if (dist <= mconf->hit_rad) {
+            targetDepo[i].state = core::DESTROYED;
+            stats.destroyed++;  // destroyed is final state
+          }
+          else {
+            targetDepo[i].state = core::ACTIVE;
+          }
+
+          LOG(simClock->nowS() << " Result= _ " << targetDepo[i].targetStateToStr() << " _ _ Hit_at_dist " << dist << " _ T#" << i
+                               << " TPos " << targetDepo[i].now.position << "_ _ _ TSpeed= " << targetDepo[i].speed);
         }
+
         break;
 
       case UNREACHABLE:
@@ -123,102 +123,33 @@ bool MissionProcessor::step()
     throw std::runtime_error("Drone data missing");
   }
 
-  if (stepCurrent > defines::kMaxSteps) {  // simulation is over!
+  if (stats.steps > defines::kMaxSteps) {  // simulation is over!
     return false;
   }
 
   updateTargets();  // unreachable => active
 
-  if (mission.isOnMission()) {
-    // analyze dron position on the drop path and change its state accordingly
-    if (mission.continueMission()) {  // fired
-      fire();
-      mission.breakMission();  //@fired
-    }
+  auto next = mstate->execute(mctx);
+  if (next) {
+    mstate = std::move(next);
   }
-
-  if (!mission.isOnMission()) {
-    while (hasNext()) {
-      if (currentTgtTag >= 0) {  // active target found @step
-        DEBUG(stepCurrent << "@Try@ T#" << currentTgtTag << ' ' << targetDepo[currentTgtTag].targetStateToStr() << "@ TPos@"
-                          << targetDepo[currentTgtTag].now.position << "@ TSpeed=" << targetDepo[currentTgtTag].speed
-                          << "@ dist=" << pointmath::getLength(targetDepo[currentTgtTag].now.position - drone->coord)
-                          << "@ angle=" << pointmath::getAngle(targetDepo[currentTgtTag].now.position - drone->coord));
-        if (mission.startNewMission(targetDepo[currentTgtTag])) {  // go on mission
-          break;
-        }
-      }
-      else {  // no available targets, wait moving until farther (at minimum distance or more)
-        drone->goIdle(); //startAccelerating();
-        break;
-      }
-    }
-  }  // eo is on mission
-
   pushStepToJSON();
 
-  if (currentTgtTag >= 0) {
-    DEBUG(stepCurrent << "@to T#" << currentTgtTag << " " << mission.missionStateToStr() << '@' << drone->droneStateToStr() << "@ Dr@"
-                      << drone->coord << "@ Dir" << drone->dirRad << "@v=" << drone->speed << "@ TPos@"
-                      << targetDepo[currentTgtTag].now.position << "@ Tv=" << targetDepo[currentTgtTag].speed << "@ tmr=" << mission.timer);
-  }
-  else {
-    DEBUG(stepCurrent << "@ idle @ @" << drone->droneStateToStr() << "@ Dr@" << drone->coord << "@ Dir" << drone->dirRad
-                      << "@ v=" << drone->speed);
-  }
-
-  ++stepCurrent;
-  drone->move();
+  ++stats.steps;
+  drone->execFly();
   return true;
-}
-
-auto MissionProcessor::getNextTarget() const -> int
-{
-  int start_idx = currentTgtTag < 0 ? 0 : currentTgtTag;
-
-  auto it = std::find_if(targetDepo.begin() + start_idx, targetDepo.end(), [](const TargetControl& tgt) { return tgt.state == ACTIVE; });
-
-  return it != targetDepo.end() ? std::distance(targetDepo.begin(), it) : -1;
-}
-
-// find and  set next Active target (current tgt tag)
-// return false if all destroyed, true if active or under attack or unreachable tgts exist
-auto MissionProcessor::identifyNextTarget() -> bool
-{
-  currentTgtTag = getNextTarget();
-  if (currentTgtTag >= 0) {
-    return true;
-  }
-
-  // start over
-  reset();
-  currentTgtTag = getNextTarget();
-  if (currentTgtTag >= 0) {
-    return true;
-  }
-
-  // no active targets, check if any of the targets are  Attacked or unreachable,
-  // then wait for fire result, changing positions or end simulation
-  auto it =
-    std::ranges::find_if(targetDepo, [](const TargetControl& tgt) { return (tgt.state == ATTACKED) || (tgt.state == UNREACHABLE); });
-
-  return it != targetDepo.end();
 }
 
 // Перевірити, чи є ще необроблені цілі
 //  NB! for simulation will always return true
 auto MissionProcessor::hasNext() -> bool
 {
-  if (!mission.isOnMission()) {
-    return (targets_->getTargetCount() != 0) && (identifyNextTarget());
-  }
-
-  return true;
+  return stats.total != stats.destroyed;
 }
 
 MissionProcessor::~MissionProcessor()
 {
-  j_out["totalSteps"] = stepCurrent;
+  j_out["totalSteps"] = stats.steps;
 
   std::ofstream jf_out(defines::kSimulationPath);
   if (jf_out.is_open()) {
@@ -229,34 +160,29 @@ MissionProcessor::~MissionProcessor()
 // Записати дані кроку у вихідн. JSON файл
 auto MissionProcessor::pushStepToJSON() -> void
 {
-  Point aimPoint = drone->getAimPoint(mission.ammoHorizDist);
-  json step;  // крок х-дрона у-дрона кут-дрона стан-дрона ціль№
+  Point aimPoint = drone->getInstantAimPoint();  // mission.getAmmoHDist());
+  json step;                                     // крок х-дрона у-дрона кут-дрона стан-дрона ціль№
   step["position"] = {{"x", drone->getPosition().x}, {"y", drone->getPosition().y}};
   step["direction"] = static_cast<float>(drone->getDirection());
   step["state"] = drone->getStateName();
-  step["targetIndex"] = currentTgtTag;
+  step["targetIndex"] = mctx.currentTgtTag;
 
   step["aimPoint"] = {{"x", aimPoint.x}, {"y", aimPoint.y}};
 
-  if (currentTgtTag >= 0) {
-    step["dropPoint"] = {{"x", mission.dropPoint.x}, {"y", mission.dropPoint.y}};
+  if (mctx.currentTgtTag >= 0) {
+    step["dropPoint"] = {{"x", mctx.firePoint.x}, {"y", mctx.firePoint.y}};
 
-    step["predictedTarget"] = {{"x", mission.tgt_lead_pos.x}, {"y", mission.tgt_lead_pos.y}};
+    step["predictedTarget"] = {{"x", mctx.tgtLeadPos.x}, {"y", mctx.tgtLeadPos.y}};
   }
-  else {  // no target, the fields not defined
-    step["dropPoint"] = nullptr;
-    step["predictedTarget"] = nullptr;
+  else {                                             // no target, the fields not defined
+    step["dropPoint"] = {{"x", 0}, {"y", 0}};        // to have same structure //nullptr;
+    step["predictedTarget"] = {{"x", 0}, {"y", 0}};  // to have same structure //nullptr;
   }
   j_out["steps"].push_back(step);
-}
 
-auto MissionProcessor::fire() -> void
-{
-  targetDepo[currentTgtTag].state = core::ATTACKED;
-  targetDepo[currentTgtTag].hitCoord = drone->getAimPoint(mission.ammoHorizDist);
-  targetDepo[currentTgtTag].hitTime = simClock->nowS() + mission.ammoFlyTime;
-  LOG(stepCurrent << "@Fired! T#" << currentTgtTag << "@ hittime=" << targetDepo[currentTgtTag].hitTime << "@hitCoord@"
-                  << targetDepo[currentTgtTag].hitCoord);
+  DEBUG(simClock->nowS() << " Pos " << drone->getPosition() << " Dir " << drone->getDirection() << " " << drone->getStateName() << " T#"
+                         << mctx.currentTgtTag << " Aim " << aimPoint << " FP " << mctx.firePoint << " TLP " << mctx.tgtLeadPos << " "
+                         << mstate->name());
 }
 
 }  // namespace core

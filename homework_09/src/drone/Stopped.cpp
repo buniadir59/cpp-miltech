@@ -1,6 +1,7 @@
 #include "drone/Stopped.hpp"
 #include "drone/Turning.hpp"
 #include "drone/Accelerating.hpp"
+#include "drone/DroneContext.hpp"
 
 #include <cmath>
 #include <memory>
@@ -9,26 +10,16 @@ namespace drone {
 
 std::unique_ptr<IDroneState> Stopped::execute(DroneContext& ctx)
 {
-  
-  ctx.updateDestDistAndDeltaAngle();
-
-  double time_to_dest;
-  if (ctx.hasToTurn) {
-    time_to_dest = ctx.getTimeToFlyToInterimPoint(ctx.distToDest);
-  }
-  else {
-    time_to_dest = ctx.getTimeToFlyToFP(ctx.distToDest);
-  }
-  double min_time_to_turn = ctx.getMinTimeToTurn(ctx.deltaAngle, time_to_dest);
-
-  //not to waste time execute turning or accelerating
-  if (min_time_to_turn > 0.0) {  // start turning
-    ctx.execTurning(); //TODO check result ?
+  anglemath::AngleRad delta = ctx.angleToTLpos - ctx.dirRad;
+  double time_to_turn = ctx.getTurnTime(delta);
+  // at once execute turning or accelerating
+  if (time_to_turn >= ctx.kAccTime) {  // start turning
+    ctx.execTurning();      
     return std::make_unique<Turning>();
   }
 
-  //start accelerating
-  ctx.execAccelerating();  //TODO check result ?
+  // start accelerating
+  ctx.execAccelerating();
   return std::make_unique<Accelerating>();
 }
 

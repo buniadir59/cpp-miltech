@@ -7,7 +7,8 @@ struct SimStatistics {
   int active = 0;
   int underAttack = 0;
   int destroyed = 0;
-  int stepsTaken = 0;
+  int firedCount = 0;
+  int steps = 0;
 };
 
 }  // namespace dto

@@ -2,7 +2,9 @@
 
 #include "core/TargetControl.hpp"
 #include "core/DroneControl.hpp"
-#include "core/Mission.hpp"
+#include "mission/MissionCtx.hpp"
+#include "interfaces/IMissionState.hpp"
+#include "dto/SimStatistics.hpp"
 
 #include <optional>
 #include <memory>
@@ -19,9 +21,7 @@ class IBallisticSolver;
 class IConfigLoader;
 class ISimulationClock;
 
-namespace dto {
-struct SimStatistics;
-}
+
 
 namespace core {
 
@@ -31,57 +31,50 @@ namespace core {
 class MissionProcessor {
   std::unique_ptr<ITargetProvider> targets_;
   std::unique_ptr<IConfigLoader> loader_;
-  std::unique_ptr<IBallisticSolver> solver_; 
+  std::unique_ptr<IBallisticSolver> solver_;
   const ISimulationClock* simClock{nullptr};  // const - only reads time
 
   nlohmann::json j_out;
 
   std::optional<DroneControl> drone;
-
-  Mission mission;
-
-  int currentTgtTag = 0;
-
-  int stepCurrent = 0;  // step, incremented through simulation until maximum
+  mission::MissionCtx mctx;
+  std::unique_ptr<IMissionState> mstate = nullptr;
 
   std::vector<TargetControl> targetDepo;
 
   const dto::MissionConfig* mconf = nullptr;
   const dto::Ammo* ammo = nullptr;
+  dto::SimStatistics stats{};  // includes steps, incremented through simulation until maximum
 
-  auto updateTargets() -> void;
-
-  auto identifyNextTarget() -> bool;  // return false if all destroyed
-  auto getNextTarget() const -> int;
-
-  auto fire() -> void;
-  auto checkFireResult(TargetControl& tgt) -> bool;
+  auto updateTargets() -> void;  // get new targets position and velocity values
 
   auto pushStepToJSON() -> void;  // Записати дані кроку у вихідн. JSON файл
+  [[nodiscard]] auto isOnMission() const -> bool { return mctx.currentTgtTag >= 0; };
 
 public:
-  auto init() -> const dto::MissionConfig*; // Завантажити конфіг, підготувати дані ітерації
-  auto hasNext() -> bool;               // Перевірити, чи є ще необроблені цілі
-  void reset() { currentTgtTag = 0; };  // Почати ітерацію спочатку
+  auto init() -> const dto::MissionConfig*;  // Завантажити конфіг, підготувати дані ітерації
+  auto hasNext() -> bool;                    // Перевірити, чи є ще необроблені цілі
+
   void changeSolver(std::unique_ptr<IBallisticSolver> solver)
   {
     solver_ = std::move(solver);
-    mission.setSolver(solver_.get());
+    drone->setSolver(solver_.get());
   };  // Підмінити solver на льоту (Стратегія)
 
   bool step();  // Обробити наступну ціль: взяти дані з ITargetProvider, обчислити через IBallisticSolver,
                 // return false if time is out
 
-  auto getSimulationStatistics() -> dto::SimStatistics;
+  auto getSimulationStatistics() -> const dto::SimStatistics&;
 
-  MissionProcessor(std::unique_ptr<ITargetProvider> targets, 
-    std::unique_ptr<IBallisticSolver> solver, 
-    std::unique_ptr<IConfigLoader> loader,  ISimulationClock* clock)
+  MissionProcessor(std::unique_ptr<ITargetProvider> targets,
+                   std::unique_ptr<IBallisticSolver> solver,
+                   std::unique_ptr<IConfigLoader> loader,
+                   ISimulationClock* clock)
     : targets_(std::move(targets))
     , loader_(std::move(loader))
     , solver_(std::move(solver))
     , simClock(clock)
-    , mission{solver_.get()} {};
+    , mctx(targetDepo, clock){};
 
   ~MissionProcessor();
 };
