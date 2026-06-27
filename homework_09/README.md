@@ -14,7 +14,8 @@
    1. Implemented smart pointers - change ownership
    2. Updated ammo parameters
    3. Added new IBallisticSolver implementation class - TableSolver
-   4. Implemeted Drone State Automate
+   4. Implemeted Drone State Automate & Mission State Automate (more to practice)
+   5. Changed interface IBallisticSolver to return separately time/distance of ammo fly  and dropRoute
 
 
 ## Структура репо
@@ -106,9 +107,6 @@ homework_09/
 ```
 ## List of TODOs for the future:
 
-   - separate input needed for ballistic table from one for drop route
-   - додати можливість скиду на довільній швидкості with correct ballistic data
-   - add calculation for decelerate on the move to give more time to turn
    - for point_math: implement near(accuracy) instead of operator==
-   - change interface IBallisticSolver to return separately time/distance of ammo fly  and dropRoute
-   - TODO use f.good() vs f.fail() in load()
+
+   
