@@ -1,10 +1,11 @@
 #include "mission/MissionCtx.hpp"
 #include "core_/TargetControl.hpp"
 #include "core_/DroneControl.hpp"
+#include "core_/TimeTracker.hpp"
 #include "math/point_math.hpp"
 #include "math/angle_math.hpp"
-#include "interfaces/ISimulationClock.hpp"
-#include "config/defines.hpp"
+//#include "interfaces/ISimulationClock.hpp"
+#include "config/defines.hpp" //for LOG/DEBUG
 
 #include <stdexcept>
 #include <cmath>
@@ -31,9 +32,10 @@ auto MissionCtx::_checkFireCondition() -> bool
     firePoint = drone->getPosition();
     currTgt->state = core::ATTACKED;
     currTgt->hitCoord = drone->getInstantAimPoint();
-    currTgt->hitTime = simClock->nowS() + drone->getInstantAmmoFFTime();
-    LOG("H=>" << currTgt->hitTime << " _ _ _ _ _ _ _ Fired! T#" << currentTgtTag << " hitXY " << currTgt->hitCoord << " _ _ _ _ _ hitXY "
-              << currTgt->hitCoord);
+    currTgt->hitTime = TimeTracker::getInstance().getElapsed() + drone->getInstantAmmoFFTime();
+    LOG("H=>" << currTgt->hitTime << " _ _ _ _ _ _ _ Fired! T#" << currentTgtTag << " hitXY " << currTgt->hitCoord 
+     // << " _ _ _ _ _ hitXY " << currTgt->hitCoord
+    );
 
     return true;
   }

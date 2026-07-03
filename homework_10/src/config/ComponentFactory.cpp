@@ -1,33 +1,33 @@
-#include "config/ComponentFactory.hpp"
 #include "interfaces/IBallisticSolver.hpp"
 #include "interfaces/ITargetProvider.hpp"
 #include "interfaces/IConfigLoader.hpp"
 #include "solvers/AnalyticalSolver.hpp"
 #include "solvers/TableSolver.hpp"
-#include "providers/JsonTargetProvider.hpp"
+#include "providers/ThreadSafeTargetProvider.hpp"
+#include "config/ComponentFactory.hpp"
 #include "config/FileConfigLoader.hpp"
-#include "config/defines.hpp"
 
 #include <memory>
-#include <string>
 
-std::unique_ptr<IBallisticSolver> ComponentFactory::createSolver(SolverType type)
+std::unique_ptr<IBallisticSolver> ComponentFactory::createSolver(SolverType type, const std::string& path)
 {
   switch (type) {
     case SolverType::ANALYTICAL:
       return std::make_unique<AnalyticalSolver>();
     case SolverType::TABLE:
-      return std::make_unique<TableSolver>(defines::kBallisticTablePath);
+      return std::make_unique<TableSolver>(path.c_str());
     default:
       return nullptr;
   }
 }
 
-std::unique_ptr<ITargetProvider> ComponentFactory::createProvider(ProviderType type, const std::string& path)
+std::unique_ptr<ITargetProvider> ComponentFactory::createProvider(ProviderType type,
+                                                                  const std::string& path,
+                                                                  const dto::MissionConfig& config)
 {
   switch (type) {
     case ProviderType::JSON:
-      return std::make_unique<JsonTargetProvider>(path);
+      return std::make_unique<ThreadSafeTargetProvider>(config, path);
 
     default:
       return nullptr;

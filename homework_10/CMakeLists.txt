@@ -9,8 +9,7 @@ add_library(
     hw10_core
     src/math/point_math.cpp
     src/math/angle_math.cpp
-    src/config/ManualSimulationClock.cpp
-    src/providers/JsonTargetProvider.cpp
+    src/providers/ThreadSafeTargetProvider.cpp
     src/solvers/AnalyticalSolver.cpp
     src/config/FileConfigLoader.cpp
     src/core_/MissionProcessor.cpp
@@ -18,6 +17,7 @@ add_library(
     src/core_/TargetControl.cpp
     src/config/ComponentFactory.cpp
     src/solvers/TableSolver.cpp
+    src/drone/DronePhysics.cpp
     src/drone/DroneContext.cpp
     src/drone/Stopped.cpp
     src/drone/Turning.cpp

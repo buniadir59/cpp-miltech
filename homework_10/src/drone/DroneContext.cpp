@@ -37,7 +37,7 @@ auto DroneContext::updateBasicAmmoRes() -> bool
     return false;
   }
 
-  ballResult = solver->solveAmmo(alt, attSpeed, *ammo);  // TODO check exception in Analytical solver
+  ballResult = solver->solve(alt, attSpeed, *ammo);  // TODO check exception in Analytical solver
   ammoBaseFFTime = ballResult.ffTime;
   ammoBaseHDist = ballResult.hDist;
   return true;
@@ -62,7 +62,7 @@ auto DroneContext::_updateSpeedDependentCtx() -> void
     timeToGainAttSpeed = kAccTime - timeToStop;
     distToStop = kAcceleration * timeToStop * timeToStop / 2.0;
     distToGainAttSpeed = accPath - distToStop;
-    ballResult = solver->solveAmmo(alt, speed, *ammo);  // TODO check exception in Analytical solver
+    ballResult = solver->solve(alt, speed, *ammo);  // TODO check exception in Analytical solver
   }
 }
 
@@ -94,7 +94,7 @@ auto DroneContext::execMoving() -> bool
   double min_time_to_turn = getMinTimeToTurn(delta, time_to_dest);
 
   if (done || (min_time_to_turn > 0.0)) {  // start decelerating
-    execDecelerating();                    
+    execDecelerating();
     return true;
   }
 
@@ -189,7 +189,6 @@ auto DroneContext::getMinTimeToTurn(anglemath::AngleRad delta_angle, double time
   double delta = abs_delta_angle - turn_on_the_move;
   return delta > kEps ? delta / angSpeed : 0.0;
 }
-
 
 // based on current speed, directly (no turn on the way)
 // we assume, that final drone state is Stopped

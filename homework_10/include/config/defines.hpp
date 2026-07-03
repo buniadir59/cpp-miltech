@@ -7,7 +7,7 @@
 
 // #define TESTOUT_TO_FILE
 #define ENABLE_LOG 1
-#define ENABLE_DEBUG 0
+#define ENABLE_DEBUG 1
 
 #if ENABLE_LOG
 #define LOG(msg) std::cout << "[LOG] " << msg << '\n';
@@ -23,15 +23,16 @@
 
 namespace defines {
 
+inline auto kAppname = "homework_10";
 inline auto kSimulationPath = "simulation.json";
-inline auto kDebugTxtPath = "homework_09/debug_09.txt";
+inline auto kDebugTxtPath = "homework_10/debug_10.txt";
 
-inline auto kBallisticTablePath = "homework_09/data/ballistic_table.txt";
-inline auto kConfigPath = "homework_09/data/config.json";
-inline auto kAmmoTablePath = "homework_09/data/ammo.json";
-inline auto kTargetsPath = "homework_09/data/targets.json";
+inline constexpr auto kBallisticTable_Path = "homework_10/data/ballistic_table.txt";
+inline constexpr auto kConfig_Path = "homework_10/data/config.json";
+inline constexpr auto kAmmoTable_Path = "homework_10/data/ammo.json";
+inline constexpr auto kTargets_Path = "homework_10/data/targets.json";
 
 // ## max number of simulation steps if any target not hit
-inline constexpr int kMaxSteps = 10000;
+inline constexpr int kMaxSteps = 200; //TODO 10000;
 
 }  // namespace defines

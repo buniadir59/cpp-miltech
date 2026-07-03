@@ -4,8 +4,7 @@
 #include "math/point_math.hpp"
 
 #include <vector>
-
-class ISimulationClock;
+//TODO remove comments
 
 namespace core {
 class DroneControl;
@@ -14,11 +13,10 @@ class DroneControl;
 namespace mission {
 
 struct MissionCtx {
-  const ISimulationClock* simClock{nullptr};  // const - only reads time
   std::vector<core::TargetControl>& tgts;
   core::DroneControl* drone = nullptr;
 
-  double tgtTimeStep{0.0};  // from m config at init time
+ // double tgtTimeStep{0.0};  // from m config at init time
   double kAccuracy_m{0.0};  // distance to destination to decide it is reached
 
 
@@ -45,9 +43,9 @@ struct MissionCtx {
   // or-1 if no such target
   auto _getNextTarget(int idx) const -> int;
 
-  MissionCtx(std::vector<core::TargetControl>& tgts, ISimulationClock* clock)
-    : simClock(clock)
-    , tgts(tgts){};
+  MissionCtx(std::vector<core::TargetControl>& tgts) //, ISimulationClock* clock
+    : //simClock(clock),
+     tgts(tgts){};
 };
 
 }  // namespace mission

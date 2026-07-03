@@ -6,7 +6,7 @@ namespace dto {
 
 struct Target {
   pointmath::Point position;
-  pointmath::Point velocity; //delta;  
+  pointmath::Point velocity; 
 };
 
 }  // namespace dto

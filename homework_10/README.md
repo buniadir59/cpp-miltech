@@ -8,6 +8,11 @@
     два запуски дадуть трохи різні траєкторії. Це нормально.
 
 ## **Що змінюється:**
+Зміни щодо зауважень з рев'ю  ДЗ-9:
+1) прибрані залишки невикористовуваного кода щодо планування маршруту з IBallisticSolver і його імплементацій, що тягнулися з ДЗ-3.
+2) змінений (спрощений) дизайн симуляції - в момент першого скиду вона завершується.       //TODO скид окремим станом?
+3) доданий аналіз командного рядка - якщо в ньому є шляхи до вхідних файдів конфігурації, ammo, симіляції цілей, 
+  балістичної таблиці і вихідного файла симуляції. Якщо значення відсутні, то використовуються значення з defines.hpp
 
 3 threads / 3 classes:
 1. ThreadSafeTargetProvider рухає цілі вздовж траєкторій, віддає поточні позицію та швидкість. Period - targetTimeStep
@@ -35,7 +40,7 @@
 •       Порядок розробки: спочатку зробіть DronePhysics і ThreadSafeQueue без потоків — викликайте крок фізики вручну
  з циклу місії та переконайтеся, що симуляція працює як у ДЗ9. Потім розносьте по потоках.
 •       #include <thread>, <mutex>, <atomic>, <chrono>, <queue>
-•       Сон на дробову кількість секунд: std::this_thread::sleep_for(std::chrono::duration<float>(dt / timeScale))
+•       Сон на дробову кількість секунд: std::this_thread::sleep_for(std::chrono::duration<float>(dt / timeScale)) //TODO ?
 •       Тримайте критичні секції короткими: під lock_guard — лише копіювання даних. Жодних обчислень і тим більше sleep під замком.
 •       mutable std::mutex — щоб блокувати м'ютекс у const-методах (getTelemetry, getTarget).
 •       physicsTimeStep має бути меншим за simTimeStep: фізика повинна встигати виконати команди між кроками планувальника.
@@ -58,7 +63,6 @@ homework_09/         //TODO
 ├── include/                  ## declarations of classes, interfaces structures
 │ ├── config/
 │ | ├── defines.hpp
-│ | ├── ManualSimulationClock.hpp
 │ | ├── FileConfigLoader.hpp
 │ | └── ComponentFactory.hpp
 │ ├── core
@@ -94,7 +98,7 @@ homework_09/         //TODO
 │ │ ├── Idle.hpp
 │ │ └── MissionCtx.hpp
 │ ├── providers/
-│ │ └── JsonTargetProvider.hpp
+│ │ └── ThreadSafeTargetProvider.hpp
 │ └──  solvers/
 │   └── AnalyticalSolver.hpp
 |   ├── BallisticTable.hpp
@@ -102,7 +106,6 @@ homework_09/         //TODO
 └── src/                      ## implementation of methods
   ├── main.cpp
   ├── config/
-  | ├── ManualSimulationClock.cpp
   | ├── FileConfigLoader.cpp
   | └── ComponentFactory.cpp
   ├── core
@@ -124,7 +127,7 @@ homework_09/         //TODO
   │ ├── Idle.cpp
   │ └── MissionCtx.cpp
   ├── providers/
-  │ └── JsonTargetProvider.cpp
+  │ └── ThreadSafeTargetProvider.cpp
   └── solvers/
     ├── AnalyticalSolver.cpp
     └── TableSolver.cpp

@@ -57,13 +57,13 @@ public:
 
   DroneControl(const dto::MissionConfig& config)
     : ctx{config.altitude,
-          config.drone_position,
-          config.acceleration_path,
-          config.attack_speed,
-          config.turn_threshold,
-          config.angular_speed,
-          config.initial_direction,
-          config.time_step}
+          config.initialPosition,
+          config.accelerationPath,
+          config.attackSpeed,
+          config.turnThreshold,
+          config.angularSpeed,
+          config.initialDirection,
+          config.timeStep}
   {
     state = std::make_unique<drone::Stopped>();  // assume initial state is full stop
   }
@@ -86,7 +86,6 @@ public:
   };
 
   [[nodiscard]] auto getInstantAmmoFFTime() -> double { return ctx.ammoBaseFFTime; };  // to estimate fire condition
-
 };
 
 }  // namespace core

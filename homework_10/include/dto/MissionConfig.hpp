@@ -1,22 +1,31 @@
 #pragma once
 
-#include <cstddef>
 #include "math/point_math.hpp"
+
+#include <cstddef>
 
 namespace dto {
 
 struct MissionConfig {
-  pointmath::Point drone_position;
+  // drone
+  double accelerationPath;
   double altitude;
-  double initial_direction;
-  double attack_speed;
-  double acceleration_path;
-  double angular_speed;
-  double turn_threshold;
-  double hit_rad;
-  double time_step;
-  double tgt_time_step;
+  double attackSpeed;
+  double angularSpeed;
+  double initialDirection;
+  pointmath::Point initialPosition;
+  double turnThreshold;
+  // simulation
+  double hitRadius;
+  double timeStep;
+  double targetTimeStep;
+  double physicsTimeStep;
+  double targetArrayTimeStep;
+  double timeScale;
+
   size_t nAmmos = 0;
+
+  //  const char* targetsPath; //TODO
 };
 
 }  // namespace dto

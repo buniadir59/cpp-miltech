@@ -1,5 +1,4 @@
 #include "config/FileConfigLoader.hpp"
-#include "config/defines.hpp"
 #include "dto/Ammo.hpp"
 #include "dto/MissionConfig.hpp"
 
@@ -12,43 +11,50 @@
 
 using json = nlohmann::json;
 
-/* TODO
+namespace {
+inline constexpr double kEps = 1e-9;
+inline constexpr double kMinStepS = 0.005;
+inline constexpr double kMinAltitude = 40;  // for now reasonable limit vased on ballistic table
+}  // namespace
+
+/*
 Нові параметри — лише два, обидва в секції simulation:
 "simulation": {
-	"targetTimeStep": 0.05,
-	"physicsTimeStep": 0.01,
-	"timeScale": 10.0
+        "targetTimeStep": 0.05,
+        "physicsTimeStep": 0.01,
+        "timeScale": 10.0
 }
-
- 
 •       physicsTimeStep — крок оновлення фізики дрона, окремий від simTimeStep.
-•       timeScale — прискорення часу: потік інтегрує крок dt, а спить dt / timeScale реального часу. 
+•       timeScale — прискорення часу: потік інтегрує крок dt, а спить dt / timeScale реального часу.
 •       Період оновлення цілей — наявний arrayTimeStep, період кроку MissionProcessor — наявний simTimeStep. Нових параметрів для них немає.
 Якщо параметрів немає у файлі - використовувати дефолт
  */
- 
+
 auto FileConfigLoader::validate_input() const -> void
 {
-  if ((config_.attack_speed < 0.0) || (config_.turn_threshold < 0)) {
+  if ((config_.attackSpeed < 0.0) || (config_.turnThreshold < 0)) {
     throw std::invalid_argument("Drone attack speed and turn threshold must not be negative");
   }
 
-  if ((config_.acceleration_path <= 0.0) || (config_.altitude <= 0.0) || (config_.angular_speed <= 0.0) || (config_.hit_rad <= 0.0)) {
+  if ((config_.accelerationPath <= kEps) || (config_.altitude < kMinAltitude) || (config_.angularSpeed <= kEps) ||
+      (config_.hitRadius <= kEps) || (config_.timeScale <= kMinStepS) || (config_.targetTimeStep <= kMinStepS) ||
+      (config_.targetArrayTimeStep <= kMinStepS) || (config_.physicsTimeStep <= kMinStepS)) {
     throw std::invalid_argument("Drone altitude, acceleration path, angular speed and hit radius must be positive");
   }
 
-  if ((config_.time_step < 0.01) || (config_.tgt_time_step < config_.time_step)) {
+  // physics step must be < simulation step, tgt array step must be greater than simulation step
+  if ((config_.timeStep < 0.01) || (config_.targetArrayTimeStep < config_.timeStep) || (config_.physicsTimeStep >= config_.timeStep)) {
     throw std::invalid_argument("Invalid time step and/or target time step value");
   }
 }
 
-auto FileConfigLoader::load(const std::string& source) -> bool
+auto FileConfigLoader::load(const std::string& conf_source, const std::string& ammo_source) -> bool
 {
   // first, read input.json
-  std::ifstream json_file(source);
+  std::ifstream json_file(conf_source);
 
   if (!json_file.is_open()) {
-    std::cerr << "Unable to open: " << source << '\n';
+    std::cerr << "Unable to open: " << conf_source << '\n';
     return false;
   }
 
@@ -58,33 +64,37 @@ auto FileConfigLoader::load(const std::string& source) -> bool
     json jsn;
     json_file >> jsn;
 
-    config_.drone_position = {jsn["drone"]["position"]["x"], jsn["drone"]["position"]["y"]};
+    config_.initialPosition = {jsn["drone"]["position"]["x"], jsn["drone"]["position"]["y"]};
     config_.altitude = jsn["drone"]["altitude"];
-    config_.initial_direction = jsn["drone"]["initialDirection"];
-    config_.attack_speed = jsn["drone"]["attackSpeed"];
-    config_.acceleration_path = jsn["drone"]["accelerationPath"];
-    config_.angular_speed = jsn["drone"]["angularSpeed"];
-    config_.turn_threshold = jsn["drone"]["turnThreshold"];
+    config_.initialDirection = jsn["drone"]["initialDirection"];
+    config_.attackSpeed = jsn["drone"]["attackSpeed"];
+    config_.accelerationPath = jsn["drone"]["accelerationPath"];
+    config_.angularSpeed = jsn["drone"]["angularSpeed"];
+    config_.turnThreshold = jsn["drone"]["turnThreshold"];
 
-    config_.hit_rad = jsn["simulation"]["hitRadius"];
-    config_.time_step = jsn["simulation"]["timeStep"];
+    config_.hitRadius = jsn["simulation"]["hitRadius"];
+    config_.timeStep = jsn["simulation"]["timeStep"];
 
-    config_.tgt_time_step = jsn["targetArrayTimeStep"];
+    config_.targetTimeStep = jsn.value("/simulation/targetTimeStep"_json_pointer, 0.01);
+    config_.physicsTimeStep = jsn.value("/simulation/physicsTimeStep"_json_pointer, 0.01);
+    config_.timeScale = jsn.value("/simulation/timeScale"_json_pointer, 1.0);
+
+    config_.targetArrayTimeStep = jsn["targetArrayTimeStep"];
 
     ammo_name = jsn["ammo"].get<std::string>();
 
     validate_input();
   }
   catch (const std::exception& error) {
-    std::cerr << "Invalid or incomplete data in " << source << '\n';
+    std::cerr << "Invalid or incomplete data in " << conf_source << '\n';
     return false;
   }
 
   // second, read ammo.json
-  std::ifstream json_ammo_file(defines::kAmmoTablePath);
+  std::ifstream json_ammo_file(ammo_source);
 
   if (!json_ammo_file.is_open()) {
-    std::cerr << "Unable to open: " << defines::kAmmoTablePath << '\n';
+    std::cerr << "Unable to open: " << ammo_source << '\n';
     return false;
   }
 
@@ -118,7 +128,7 @@ auto FileConfigLoader::load(const std::string& source) -> bool
   }
 
   catch (const std::exception& error) {
-    std::cerr << "Invalid or incomplete data in " << defines::kAmmoTablePath << '\n';
+    std::cerr << "Invalid or incomplete data in " << conf_source << '\n';
     return false;
   }
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 namespace dto {
 
 struct SimStatistics {
@@ -9,6 +11,9 @@ struct SimStatistics {
   int destroyed = 0;
   int firedCount = 0;
   int steps = 0;
+  std::string ammoName;
+  std::string solverName;
+
 };
 
 }  // namespace dto

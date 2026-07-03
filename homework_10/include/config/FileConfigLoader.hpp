@@ -1,15 +1,16 @@
 #pragma once
 
-#include "dto/Ammo.hpp"
-#include "dto/MissionConfig.hpp"
 #include "interfaces/IConfigLoader.hpp"
 
-#include <string>
+namespace dto {
+struct Ammo;
+struct MissionConfig;
 
+}  // namespace dto
 // читає config.json і ammo.json
 class FileConfigLoader : public IConfigLoader {
 public:
-  auto load(const std::string& source) -> bool override;
+  auto load(const std::string& conf_source, const std::string& ammo_source) -> bool override;
 
   auto getConfig() const -> const dto::MissionConfig& override { return config_; };
   auto getAmmoParams() const -> const dto::Ammo& override { return selected_ammo_; };

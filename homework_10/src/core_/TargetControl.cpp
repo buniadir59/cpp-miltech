@@ -11,7 +11,7 @@ namespace core {
 //called every step to obtain new coordinates and velocity params  
 auto TargetControl::update() -> void
 {
-  speed = pointmath::getLength(now.velocity); // delta) / tgtTimeStep;
+  speed = pointmath::getLength(now.velocity); 
 }
 
 //returns time for which the target makes acc_m distance

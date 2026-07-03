@@ -1,24 +1,24 @@
+#include "drone/DronePhysics.hpp"
 #include "core_/MissionProcessor.hpp"
-#include "config/defines.hpp"
-#include "dto/MissionConfig.hpp"
+#include "core_/TargetControl.hpp"
+#include "core_/TimeTracker.hpp"
+#include "dto/Ammo.hpp"
+#include "dto/BallisticResult.hpp"
 #include "dto/SimStatistics.hpp"
 #include "dto/Target.hpp"
-#include "core_/TargetControl.hpp"
 #include "mission/Idle.hpp"
 #include "interfaces/ITargetProvider.hpp"
-#include "interfaces/IConfigLoader.hpp"
 #include "math/angle_math.hpp"
 #include "math/point_math.hpp"
-#include "config/defines.hpp"
+#include "config/defines.hpp"  //for LOG/DEBUG
 
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <cmath>
-#include <stdexcept>
 #include <fstream>
-#include <optional>
 #include <algorithm>
 #include <string>
+#include <thread>
 
 using json = nlohmann::json;
 
@@ -26,6 +26,85 @@ using Point = pointmath::Point;
 using AngleRad = anglemath::AngleRad;
 
 namespace core {
+
+auto MissionProcessor::run() -> void
+{
+  init();
+  auto init() -> void;  // Завантажити конфіг, підготувати дані ітерації
+  threadReady = true;
+
+  while (!threadStart) {
+  };
+
+  TimeTracker& tt = TimeTracker::getInstance();
+  double time = 0.0;
+  int step_now = 0;
+  LOG("Started " << tt.getElapsed());
+
+  while (true) {//} (!hasNext()) {
+    if (!step()) {
+      LOG("Simulation_time_is_over!");  // TODO result as bool
+      break;
+    };
+    auto wakeup = tt.nextWakeup(timeStep);
+    std::this_thread::sleep_until(wakeup);
+    LOG("wakeup=" <<  tt.getElapsed()); 
+  }
+
+    LOG("Ended " << tt.getElapsed());
+}
+
+// checks what if we fire now()
+// returns true if fired
+/* auto MissionProcessor::_checkFireCondition() -> bool
+{
+  pointmath::Point tlp = _getCurrTgtLeadPos(drone->getInstantAmmoFFTime());  //@cfcond
+  pointmath::Point aim_p = drone->getInstantAimPoint();
+  double hit_dist = pointmath::getLength(aim_p - tlp);
+  if (hit_dist <= kAccuracy_m) {  // Fire
+    firePoint = drone->getPosition();
+    currTgt->state = core::ATTACKED;
+    currTgt->hitCoord = drone->getInstantAimPoint();
+    currTgt->hitTime = TimeTracker::getInstance().getElapsed() + drone->getInstantAmmoFFTime();
+    LOG("H=>" << currTgt->hitTime << " _ _ _ _ _ _ _ Fired! T#" << currentTgtTag << " hitXY " << currTgt->hitCoord 
+     // << " _ _ _ _ _ hitXY " << currTgt->hitCoord
+    );
+
+    return true;
+  }
+  return false;
+} */
+
+// Логіка step():
+// 1. Взяти наступну ціль через targets->get Target(currentIdx)
+// 2. Викликати solver->solve(dronePos, target.pos, altitude, ammo)
+// 3. Збільшити лічильник, повернути результат
+// return false if #steps > max
+bool MissionProcessor::step()
+{
+  if (stats.steps > kMaxSteps) {  // simulation is over!
+    return false;
+  }
+  /*  TODO restore
+    updateTargets();  // unreachable => active
+    drone::DroneTelemetry telemetry = drone_.getTelemetry();
+    auto next = mstate->execute(mctx);
+    if (next) {
+      mstate = std::move(next);
+    }
+    pushStepToJSON(telemetry); */
+
+  ++stats.steps;
+  //  drone->execFly();
+  return true;
+}
+
+// Перевірити, чи є ще необроблені цілі
+//  NB! for simulation will always return true
+auto MissionProcessor::hasNext() -> bool
+{
+  return stats.total != stats.destroyed;
+}
 
 auto MissionProcessor::getSimulationStatistics() -> const dto::SimStatistics&
 {
@@ -36,39 +115,6 @@ auto MissionProcessor::getSimulationStatistics() -> const dto::SimStatistics&
   return stats;
 }
 
-auto MissionProcessor::init() -> const dto::MissionConfig*
-{
-  if (!loader_->load(defines::kConfigPath)) {
-    throw std::runtime_error("Error loading configuration");
-  };
-
-  j_out["steps"] = json::array();
-
-  mconf = &(loader_->getConfig());
-  ammo = &(loader_->getAmmoParams());
-
-  drone.emplace(*mconf);
-  mctx.drone = &*drone;
-  // set drone's copy of solver
-  drone->setSolver(solver_.get());
-  drone->setAmmo(ammo);
-
-  mctx.tgtTimeStep = mconf->tgt_time_step;
-  mctx.kAccuracy_m = mconf->time_step * mconf->attack_speed / 2.0;
-
-  const auto target_count = targets_->getTargetCount();
-  targetDepo.assign(static_cast<std::size_t>(target_count), TargetControl{});
-
-  for (auto& target : targetDepo) {  // initialise each tgt state
-    target.state = ACTIVE;
-  }
-
-  stats = {target_count, target_count, 0, 0, 0};
-
-  mstate = std::make_unique<mission::Idle>();
-  return &*mconf;
-}
-
 // gets new targets position and velocity
 auto MissionProcessor::updateTargets() -> void
 {
@@ -76,7 +122,7 @@ auto MissionProcessor::updateTargets() -> void
     if (targetDepo[i].state == DESTROYED)
       continue;
 
-    targetDepo[i].now = targets_->getTarget(i);
+    targetDepo[i].now = targets_.getTarget(i);
     targetDepo[i].update();
 
     switch (targetDepo[i].state) {
@@ -84,11 +130,11 @@ auto MissionProcessor::updateTargets() -> void
         break;
 
       case ATTACKED:
-
-        if (std::fabs(simClock->nowS() - targetDepo[i].hitTime) <= mconf->time_step / 2.0) {
+        if ((TimeTracker::getInstance().getElapsed() - targetDepo[i].hitTime) <
+            0.05) {  // TODO replace with tgt time step // mconf->timeStep / 2.0
           stats.firedCount++;
           double dist = pointmath::getLength(targetDepo[i].now.position - targetDepo[i].hitCoord);
-          if (dist <= mconf->hit_rad) {
+          if (dist <= 3.0) {  // TODO somehow replace magic number with ?? } mconf->hitRadius) {
             targetDepo[i].state = core::DESTROYED;
             stats.destroyed++;  // destroyed is final state
           }
@@ -96,8 +142,9 @@ auto MissionProcessor::updateTargets() -> void
             targetDepo[i].state = core::ACTIVE;
           }
 
-          LOG(simClock->nowS() << " Result= _ " << targetDepo[i].targetStateToStr() << " _ _ Hit_at_dist " << dist << " _ T#" << i
-                               << " TPos " << targetDepo[i].now.position << "_ _ _ TSpeed= " << targetDepo[i].speed);
+          LOG(TimeTracker::getInstance().getElapsed()
+              << " Result= _ " << targetDepo[i].targetStateToStr() << " _ _ Hit_at_dist " << dist << " _ T#" << i << " TPos "
+              << targetDepo[i].now.position << "_ _ _ TSpeed= " << targetDepo[i].speed);
         }
 
         break;
@@ -112,66 +159,68 @@ auto MissionProcessor::updateTargets() -> void
   }
 }
 
-// Логіка step():
-// 1. Взяти наступну ціль через targets->get Target(currentIdx)
-// 2. Викликати solver->solve(dronePos, target.pos, altitude, ammo)
-// 3. Збільшити лічильник, повернути результат
-// return false if #steps > max
-bool MissionProcessor::step()
+auto MissionProcessor::init() -> void
 {
-  if (!drone) {
-    throw std::runtime_error("Drone data missing");
+  j_out["steps"] = json::array();
+
+  // mconf = &(loader_->getConfig());
+  // ammo = &(loader_->getAmmoParams());
+
+  // TODO move  drone.emplace(*mconf);
+  //??? mctx.drone = &*drone;
+  /*   // set drone's copy of solver
+    drone->setSolver(solver_.get());
+    drone->setAmmo(ammo); */
+
+  mctx.kAccuracy_m = 0.5;  // TODO somehow replace magic number with ??? m conf->timeStep * mconf->attackSpeed / 2.0;
+
+  const auto target_count = targets_.getTargetCount();
+  targetDepo.assign(static_cast<std::size_t>(target_count), TargetControl{});
+
+  for (auto& target : targetDepo) {  // initialise each tgt state
+    target.state = ACTIVE;
   }
 
-  if (stats.steps > defines::kMaxSteps) {  // simulation is over!
-    return false;
-  }
-
-  updateTargets();  // unreachable => active
-
-  auto next = mstate->execute(mctx);
-  if (next) {
-    mstate = std::move(next);
-  }
-  pushStepToJSON();
-
-  ++stats.steps;
-  drone->execFly();
-  return true;
-}
-
-// Перевірити, чи є ще необроблені цілі
-//  NB! for simulation will always return true
-auto MissionProcessor::hasNext() -> bool
-{
-  return stats.total != stats.destroyed;
+  stats.total = target_count;
+  stats.active = target_count;
+  stats.solverName = solver_->name();
+  stats.ammoName = ammo.name;
+  mstate = std::make_unique<mission::Idle>();
 }
 
 MissionProcessor::~MissionProcessor()
 {
   j_out["totalSteps"] = stats.steps;
 
-  std::ofstream jf_out(defines::kSimulationPath);
+  std::ofstream jf_out(simulationPath);
   if (jf_out.is_open()) {
     jf_out << j_out.dump(2);  // 2 spaces => tab
   }
 }
 
-/* // Записати дані кроку у вихідн. JSON файл */ /* TODO
-Формат той самий, що в попередніх ДЗ: масив steps з полями 
-position, direction, state, targetIndex, dropPoint, aimPoint, predictedTarget. 
-один запис на крок планування; 
-у поле state пишеться поточний DroneMode з телеметрії.
-Додаткове поле для врахування нерівномірності кроків - timeSecSinceStart. 
-Якщо цого поля не буде, чекер буде рахувати кроки рівномірними.  
- */
-auto MissionProcessor::pushStepToJSON() -> void
+auto MissionProcessor::getInstantAimPoint(drone::DroneTelemetry& telemetry) -> pointmath::Point
 {
-  Point aimPoint = drone->getInstantAimPoint();  // mission.getAmmoHDist());
-  json step;                                     // крок х-дрона у-дрона кут-дрона стан-дрона ціль№
-  step["position"] = {{"x", drone->getPosition().x}, {"y", drone->getPosition().y}};
-  step["direction"] = static_cast<float>(drone->getDirection());
-  step["state"] = drone->getStateName();
+  dto::BallisticResult ballResult = solver_->solve(telemetry.z, telemetry.speed, ammo);  // TODO check exception in Analytical solver
+
+  return pointmath::Point{telemetry.x, telemetry.y} + pointmath::Point{telemetry.vx, telemetry.vy} * ballResult.hDist;
+};
+
+/* // Записати дані кроку у вихідн. JSON файл */ /* TODO
+Формат той самий, що в попередніх ДЗ: масив steps з полями
+position, direction, state, targetIndex, dropPoint, aimPoint, predictedTarget.
+один запис на крок планування;
+у поле state пишеться поточний DroneMode з телеметрії.
+Додаткове поле для врахування нерівномірності кроків - timeSecSinceStart.
+Якщо цого поля не буде, чекер буде рахувати кроки рівномірними.
+ */
+auto MissionProcessor::pushStepToJSON(drone::DroneTelemetry& telemetry) -> void
+{
+  Point aimPoint = getInstantAimPoint(telemetry);  // mission.getAmmoHDist());
+  json step;
+  step["timeSecSinceStart"] = static_cast<float>(telemetry.t_ms) / 1000.0;  // крок х-дрона у-дрона кут-дрона стан-дрона ціль№
+  step["position"] = {{"x", telemetry.x}, {"y", telemetry.y}};
+  step["direction"] = telemetry.dir;
+  step["state"] = drone_.stateToStr(telemetry.state);
   step["targetIndex"] = mctx.currentTgtTag;
 
   step["aimPoint"] = {{"x", aimPoint.x}, {"y", aimPoint.y}};
@@ -181,15 +230,15 @@ auto MissionProcessor::pushStepToJSON() -> void
 
     step["predictedTarget"] = {{"x", mctx.tgtLeadPos.x}, {"y", mctx.tgtLeadPos.y}};
   }
-  else {                                             // no target, the fields not defined
-    step["dropPoint"] = {{"x", 0}, {"y", 0}};        // to have same structure //nullptr;
-    step["predictedTarget"] = {{"x", 0}, {"y", 0}};  // to have same structure //nullptr;
+  else {                                // no target, the fields not defined
+    step["dropPoint"] = nullptr;        // {{"x", 0}, {"y", 0}};        // to have same structure //nullptr;  //
+    step["predictedTarget"] = nullptr;  // {{"x", 0}, {"y", 0}};  // to have same structure //nullptr;
   }
   j_out["steps"].push_back(step);
 
-  DEBUG(simClock->nowS() << " Pos " << drone->getPosition() << " Dir " << drone->getDirection() << " " << drone->getStateName() << " T#"
-                         << mctx.currentTgtTag << " Aim " << aimPoint << " FP " << mctx.firePoint << " TLP " << mctx.tgtLeadPos << " "
-                         << mstate->name());
+  DEBUG(TimeTracker::getInstance().getElapsed()
+        << " X: " << telemetry.x << " Y: " << telemetry.y << " Dir " << telemetry.dir << " " << drone_.stateToStr(telemetry.state) << " T#"
+        << mctx.currentTgtTag << " Aim " << aimPoint << " FP " << mctx.firePoint << " TLP " << mctx.tgtLeadPos << " " << mstate->name());
 }
 
 }  // namespace core
