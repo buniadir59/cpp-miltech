@@ -8,10 +8,10 @@ namespace dto {
 
 struct MissionConfig {
   // drone
-  double accelerationPath;
-  double altitude;
+  double kAccelerationPath;
+  double kAltitude;
   double attackSpeed;
-  double angularSpeed;
+  double maxAngularSpeedRadPerS;
   double initialDirection;
   pointmath::Point initialPosition;
   double turnThreshold;
@@ -24,8 +24,6 @@ struct MissionConfig {
   double timeScale;
 
   size_t nAmmos = 0;
-
-  //  const char* targetsPath; //TODO
 };
 
 }  // namespace dto

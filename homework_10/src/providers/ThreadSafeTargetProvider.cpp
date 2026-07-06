@@ -2,7 +2,6 @@
 #include "dto/Target.hpp"
 #include "core_/TimeTracker.hpp"
 #include "math/point_math.hpp"
-// TODO clean comments
 
 #include <cmath>
 #include <cstddef>
@@ -11,6 +10,7 @@
 #include <exception>
 #include <stdexcept>
 #include <thread>
+#include <iostream>
 
 using json = nlohmann::json;
 
@@ -18,29 +18,39 @@ using json = nlohmann::json;
    -waits for start;
    -calls update() every arrayTimeStep / timeS cale;
    -ends on request to stop. */
-void ThreadSafeTargetProvider::run()
+void ThreadSafeTargetProvider::run() noexcept
 {
-  update(0.0);  // initial values
-  threadReady = true;
-  while (!threadStart) {
-  };
-
-  TimeTracker& tt = TimeTracker::getInstance();
-  double time = 0.0;
-  int step = 0;
-  while (!threadStopRequested) {
-    time = tt.getElapsed();
-    int next = std::floor(time / tgtTimeStep);
-    if (next != step) {
-      step = next;
-      update(time);
+  try {
+    update();  // initial values
+    threadReady.store(true);
+    while (!threadStart.load() && !threadStopRequested.load()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+    if (threadStopRequested.load()) {
+      return;
+    }
+    TimeTracker& tt = TimeTracker::getInstance();
+
+    while (!threadStopRequested.load()) {
+      update();
+      auto wakeup = tt.nextWakeup(tgtTimeStep);
+      std::this_thread::sleep_until(wakeup);
+    }
   }
-  //  step = -1; //TOdo
+  catch (const std::exception& error) {
+    std::cerr << "Provider thread error: " << error.what() << '\n';
+    failed.store(true);
+    threadStopRequested.store(true);
+  }
+  catch (...) {
+    std::cerr << "Provider thread unknown error\n";
+    failed.store(true);
+    threadStopRequested.store(true);
+  }
 }
 
-void ThreadSafeTargetProvider::update(double time)
+void ThreadSafeTargetProvider::update()
 {
   const auto nTgts_ = tgtTracks.size();
   std::vector<dto::Target> tgt_now_;
@@ -65,10 +75,8 @@ void ThreadSafeTargetProvider::update(double time)
   {
     std::lock_guard<std::mutex> lock(tgtsMutex);  //@updating targets
     currTgts = std::move(tgt_now_);
-    time_updated = time;
   }
-  // LOG("LT="<< localTimeSec << " T1 " << currTgts[1].position <<" V:"<< currTgts[1].velocity);
-  // move LocalTime();
+
   localTimeSec = std::fmod(localTimeSec + tgtTimeStep, trackDuration);
 }
 
@@ -79,17 +87,6 @@ auto ThreadSafeTargetProvider::getTarget(int idx) -> dto::Target
   }
 
   std::lock_guard<std::mutex> lock(tgtsMutex);  //@reading target
-  return currTgts[idx];
-}
-
-auto ThreadSafeTargetProvider::getTarget(int idx, double& timestamp) -> dto::Target
-{
-  if (idx < 0 || static_cast<std::size_t>(idx) >= tgtTracks.size()) {
-    throw std::runtime_error("Invalid target index");
-  }
-
-  std::lock_guard<std::mutex> lock(tgtsMutex);  //@reading target
-  timestamp = time_updated;
   return currTgts[idx];
 }
 

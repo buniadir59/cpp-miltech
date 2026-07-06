@@ -1,11 +1,8 @@
 #include "mission/MissionCtx.hpp"
-#include "core_/TargetControl.hpp"
-#include "core_/DroneControl.hpp"
 #include "core_/TimeTracker.hpp"
 #include "math/point_math.hpp"
 #include "math/angle_math.hpp"
-//#include "interfaces/ISimulationClock.hpp"
-#include "config/defines.hpp" //for LOG/DEBUG
+#include "config/defines.hpp"  //for LOG/DEBUG
 
 #include <stdexcept>
 #include <cmath>
@@ -24,19 +21,15 @@ namespace mission {
 // checks what if we fire now()
 // returns true if fired
 auto MissionCtx::_checkFireCondition() -> bool
-{
-  pointmath::Point tlp = _getCurrTgtLeadPos(drone->getInstantAmmoFFTime());  //@cfcond
-  pointmath::Point aim_p = drone->getInstantAimPoint();
-  double hit_dist = pointmath::getLength(aim_p - tlp);
+{        // TODO check if 0.0 - have valid ballistic result?
+  pointmath::Point tlp = _getCurrTgtLeadPos(instantAmmoFFTime);  //@cfcond
+  double hit_dist = pointmath::getLength(instantAimPoint - tlp);
   if (hit_dist <= kAccuracy_m) {  // Fire
-    firePoint = drone->getPosition();
+    firePoint = {telemetry.x, telemetry.y};
     currTgt->state = core::ATTACKED;
-    currTgt->hitCoord = drone->getInstantAimPoint();
-    currTgt->hitTime = TimeTracker::getInstance().getElapsed() + drone->getInstantAmmoFFTime();
-    LOG("H=>" << currTgt->hitTime << " _ _ _ _ _ _ _ Fired! T#" << currentTgtTag << " hitXY " << currTgt->hitCoord 
-     // << " _ _ _ _ _ hitXY " << currTgt->hitCoord
-    );
-
+    currTgt->hitCoord = instantAimPoint;
+    currTgt->hitTime = TimeTracker::getInstance().getElapsed() + instantAmmoFFTime;
+    LOG("H=>" << currTgt->hitTime << " _ _ _ _ _ _ _ Fired! T#" << currentTgtTag << " hitXY " << currTgt->hitCoord);
     return true;
   }
   return false;
@@ -51,36 +44,32 @@ auto MissionCtx::calcAttackRoute() -> int
   }
 
   double time_acc = currTgt->getAccuracyS(kAccuracy_m);
-  double dist2AttSp = drone->getDistToGainAttSpeed();
-  double time2AttSp = drone->getTimeToGainAttSpeed();
-  pointmath::Point drPos = drone->getPosition();
-  double baseFFtime = drone->getBaseAmmoFFTime();
-  double baseFFdist = drone->getBaseAmmoFFDist();
-  double drDir = drone->getDirection();
+  pointmath::Point drPos = getDroneCoord();
+  double drDir = telemetry.dir;
 
   double angle_to_tgt;
-  double tmr = time2AttSp;  // initial minimal estimation for time to FP -> time to gain Att speed
+  double tmr = timeToGainAttSpeed;  // initial minimal estimation for time to FP -> time to gain Att speed
   int count = 0;
   int res_code = 3;  // =>too many recalculations
 
   while (++count < kMaxRecalculations) {
     // get tgt lead pos, angle and dist  to tgt
-    tgtLeadPos = _getCurrTgtLeadPos(tmr + baseFFtime);  //@cfp saved in context
+    tgtLeadPos = _getCurrTgtLeadPos(tmr + ammoBaseFFTime);  //@cfp saved in context
     double dist_to_tgt;
     pointmath::trxPointToDistAngle(tgtLeadPos - drPos, dist_to_tgt, angle_to_tgt);
 
-    firePoint = tgtLeadPos - pointmath::cossin(angle_to_tgt) * baseFFdist;  // just to report
-    if (dist_to_tgt < baseFFdist + dist2AttSp) {                            // we aren't able to gain att speed TODO ?? week condition?
+    firePoint = tgtLeadPos - pointmath::cossin(angle_to_tgt) * ammoBaseHDist;  // just to report
+    if (dist_to_tgt < ammoBaseHDist + distToGainAttSpeed) {                    // we aren't able to gain att speed TODO ?? week condition?
       res_code = 1;
       break;
     }
     double dist2fp;
     double time2fp;
     // get dist to FP and angle to turn on the way
-    dist2fp = dist_to_tgt - baseFFdist;
-    time2fp = time2AttSp + (dist2fp - dist2AttSp) / drone->getAttSpeed();  // acc + cruize time, turn not accounted
+    dist2fp = dist_to_tgt - ammoBaseHDist;
+    time2fp = timeToGainAttSpeed + (dist2fp - distToGainAttSpeed) / mconf.attackSpeed;  // acc + cruize time, turn not accounted
 
-    double min_time_to_turn = drone->getMinTimeToTurn(angle_to_tgt - drDir, time2fp);
+    double min_time_to_turn = getMinTimeToTurn(angle_to_tgt - drDir, time2fp);
 
     if (min_time_to_turn > kEps) {
       res_code = 2;  // break mission => too much turn needed
@@ -96,7 +85,7 @@ auto MissionCtx::calcAttackRoute() -> int
   }  // eo while
 
   if (!res_code) {  // ok, update destination for drone
-    drone->setDestToAttack(firePoint, angle_to_tgt);
+  // TODO put in context   drone->setDestToAttack(firePoint, angle_to_tgt);
     return 0;
   }
 
@@ -104,10 +93,37 @@ auto MissionCtx::calcAttackRoute() -> int
   return res_code;
 }
 
-auto MissionCtx::breakMission() -> void
+auto MissionCtx::_updateSpeedDependentCtx() -> void
 {
-  drone->flyAway();
-  currentTgtTag = -1;
+  pointmath::Point dirXY = pointmath::cossin(telemetry.dir);
+  instantAimPoint = getDroneCoord() + dirXY * instantAmmoFFDist;
+
+  if (telemetry.speed == static_cast<float>(mconf.attackSpeed)) {
+    timeToGainAttSpeed = 0.0;
+    distToGainAttSpeed = 0.0;
+    timeToStop = kAccTime;
+    distToStop = mconf.kAccelerationPath;
+  }
+  else if (telemetry.speed < kEps) {
+    timeToGainAttSpeed = kAccTime;
+    distToGainAttSpeed = mconf.kAccelerationPath;
+    timeToStop = 0.0;
+    distToStop = 0.0;
+  }
+  else {
+    timeToStop = telemetry.speed / kAcceleration;
+    timeToGainAttSpeed = kAccTime - timeToStop;
+    distToStop = kAcceleration * timeToStop * timeToStop / 2.0;
+    distToGainAttSpeed = mconf.kAccelerationPath - distToStop;
+  }
+}
+
+auto MissionCtx::getMinTimeToTurn(anglemath::AngleRad delta_angle, double time_on_move) const -> double
+{
+  double abs_delta_angle = std::fabs(delta_angle.value);
+  double turn_on_the_move = mconf.maxAngularSpeedRadPerS * time_on_move;
+  double delta = abs_delta_angle - turn_on_the_move;
+  return delta > kEps ? delta / mconf.maxAngularSpeedRadPerS : 0.0;
 };
 
 // returns position of current target at lead_time sec from now based on current position and velocity info
@@ -121,7 +137,7 @@ auto MissionCtx::_getCurrTgtLeadPos(double lead_time) const -> pointmath::Point
 
 // returns index of the active target starting from the ind,
 // or -1 if no such target
-auto MissionCtx::_getNextTarget(int idx) const -> int
+auto MissionCtx::_getNextTarget(int idx) const -> int //TODO lambda
 {
   int start_idx = idx < 0 ? 0 : idx;
   auto it = std::find_if(tgts.begin() + start_idx, tgts.end(), [](const core::TargetControl& tgt) { return tgt.state == core::ACTIVE; });
@@ -129,13 +145,14 @@ auto MissionCtx::_getNextTarget(int idx) const -> int
   return it != tgts.end() ? std::distance(tgts.begin(), it) : -1;
 }
 
+ // calls _getNextTarget, repeats search from the begining if needed
 auto MissionCtx::getNextTarget() -> int
 {
-  int newIdx;  
+  int newIdx;
   while ((newIdx = _getNextTarget(0)) >= 0) {
     // check  if worth to pursue - check if we have a speed gain over the target
-    double angle2T = pointmath::getAngle(tgts[newIdx].now.position - drone->getPosition());
-    if (drone->getAttSpeed() * kMinSpeedRatio < tgts[newIdx].speed * std::cos(angle2T)) {  // not reachable
+    double angle2T = pointmath::getAngle(tgts[newIdx].now.position - getDroneCoord());
+    if (mconf.attackSpeed * kMinSpeedRatio < tgts[newIdx].speed * std::cos(angle2T)) {  // not reachable
       tgts[newIdx].state = core::UNREACHABLE;
     }
     else {
@@ -143,6 +160,50 @@ auto MissionCtx::getNextTarget() -> int
     };
   }
   return newIdx;
+}
+
+// finds new target and check if it is reachable
+// if found returns ptr to  respective state
+// if not found returns nullptr
+std::unique_ptr<IMissionState> Idle::execute(MissionCtx& ctx)
+{
+  int tag;
+  while ((tag = ctx.getNextTarget()) >= 0) {
+    // try to start new mission
+    ctx.setCurrentTgtTag(tag);
+    if (!ctx.calcAttackRoute()) {  // ok, we are attacking next target
+      return std::make_unique<mission::Attack>();
+    }
+  }
+
+  ctx.breakMission();
+  return nullptr;  // continue idle, no need to check other states as we already know that has Next is true
+}
+
+// finds new target and check if it is reachable
+// if found returns ptr to  respective state
+// if not found returns nullptr
+std::unique_ptr<IMissionState> Attack::execute(MissionCtx& ctx)
+{
+  // re-calculate route to FP ()
+  int res = ctx.calcAttackRoute();
+
+  if (!res) {  // continue to FP
+    return nullptr;
+  }
+
+  int tag;
+  while ((tag = ctx.getNextTarget()) >= 0) {
+    // try to start new mission
+    ctx.setCurrentTgtTag(tag);
+    res = ctx.calcAttackRoute();
+    if (!res) {  // ok, we are attacking next target
+      return nullptr;
+    }
+  }
+
+  ctx.breakMission();
+  return std::make_unique<mission::Idle>();
 }
 
 }  // namespace mission

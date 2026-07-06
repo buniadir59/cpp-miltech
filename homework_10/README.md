@@ -50,7 +50,7 @@
 ## Структура репо
 
 ```
-homework_09/         //TODO
+homework_09/       
 ├── CMakeLists.txt       
 ├── README.md    
 ├── data/
@@ -67,19 +67,17 @@ homework_09/         //TODO
 │ | └── ComponentFactory.hpp
 │ ├── core
 │ | ├── MissionProcessor.hpp
-│ | ├── DroneControl.hpp
 │ | └── TargetControl.hpp
 │ ├── drone
 │ | ├── Acceleratin.hpp
 │ | ├── Decelerating.hpp
-│ | ├── DroneContext.hpp
 │ | ├── Moving.hpp
 │ | ├── Stopped.hpp
 │ | └── Turning.hpp
 │ ├── dto
 │ | ├── Ammo.hpp
 │ | ├── BallisticsіInput.hpp
-│ | ├── DropSolution.hpp
+│ | ├── DroneInterfaceStructures.hpp
 │ | ├── MissionConfig.hpp
 │ | ├── SimStatistics.hpp
 │ │ └── Target.hpp
@@ -94,13 +92,11 @@ homework_09/         //TODO
 │ │ ├── angle_math.hpp
 │ │ └── point_math.hpp
 │ ├── mission/
-│ │ ├── Attack.hpp
-│ │ ├── Idle.hpp
 │ │ └── MissionCtx.hpp
 │ ├── providers/
 │ │ └── ThreadSafeTargetProvider.hpp
 │ └──  solvers/
-│   └── AnalyticalSolver.hpp
+│   ├── AnalyticalSolver.hpp
 |   ├── BallisticTable.hpp
 |   └── TableSolver.hpp
 └── src/                      ## implementation of methods
@@ -110,21 +106,17 @@ homework_09/         //TODO
   | └── ComponentFactory.cpp
   ├── core
   │ ├── MissionProcessor.cpp
-  │ ├── DroneControl.cpp
   │ └── TargetControl.cpp
   ├── drone
   | ├── Accelerating.cpp
   | ├── Decelerating.cpp
-  | ├── DroneContext.cpp
   | ├── Moving.cpp
   | ├── Stopped.cpp
   | └── Turning.cpp
   ├── math/
   │ ├── angle_math.cpp
   │ └── point_math.cpp
-  │ ├── mission/
-  │ ├── Attack.cpp
-  │ ├── Idle.cpp
+  ├── mission/
   │ └── MissionCtx.cpp
   ├── providers/
   │ └── ThreadSafeTargetProvider.cpp

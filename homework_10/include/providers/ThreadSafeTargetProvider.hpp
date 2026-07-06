@@ -18,7 +18,7 @@ class ThreadSafeTargetProvider final : public ITargetProvider {
 
   std::vector<std::vector<pointmath::Point>> tgtTracks;
   std::vector<dto::Target> currTgts;  // current positions and velocities of simulated targets
-  double time_updated = 0.0;
+
   double arrTimeStep;
   double tgtTimeStep;
 
@@ -29,9 +29,10 @@ class ThreadSafeTargetProvider final : public ITargetProvider {
   std::atomic<bool> threadStopRequested{false};
   std::atomic<bool> threadStart{false};
   std::atomic<bool> threadReady{false};
+  std::atomic<bool> failed{false};
 
   auto parseJson(const std::string& source) -> void;  // called when created
-  auto update(double time) -> void;
+  auto update() -> void;                              // double time
 
 public:
   ThreadSafeTargetProvider(const dto::MissionConfig& config, const std::string& path)
@@ -42,12 +43,12 @@ public:
     trackDuration = static_cast<double>(tgtTracks.size()) * arrTimeStep;
   }
 
-  auto getTargetCount() -> int override { return static_cast<int>(tgtTracks.size()); }
+  [[nodiscard]] auto getTargetCount() -> int override { return static_cast<int>(tgtTracks.size()); }
+  [[nodiscard]] auto getTarget(int idx) -> dto::Target override;
 
-  auto getTarget(int idx) -> dto::Target override;
-  auto getTarget(int idx, double& timestamp) -> dto::Target override;  // TODO
-  auto start() -> void override { threadStart = true; };
-  auto stop() -> void override { threadStopRequested = true; };
-  auto isThreadReady() -> bool override { return threadReady; };
-  auto run() -> void override;
+  auto start() -> void override { threadStart.store(true); };
+  auto stop() -> void override { threadStopRequested.store(true); };
+  [[nodiscard]] auto isThreadReady() -> bool override { return threadReady.load(); };
+  [[nodiscard]] auto hasFailed() const -> bool override { return failed.load(); };
+  auto run() noexcept -> void override;
 };

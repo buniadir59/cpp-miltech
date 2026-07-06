@@ -36,7 +36,7 @@ auto FileConfigLoader::validate_input() const -> void
     throw std::invalid_argument("Drone attack speed and turn threshold must not be negative");
   }
 
-  if ((config_.accelerationPath <= kEps) || (config_.altitude < kMinAltitude) || (config_.angularSpeed <= kEps) ||
+  if ((config_.kAccelerationPath <= kEps) || (config_.kAltitude < kMinAltitude) || (config_.maxAngularSpeedRadPerS <= kEps) ||
       (config_.hitRadius <= kEps) || (config_.timeScale <= kMinStepS) || (config_.targetTimeStep <= kMinStepS) ||
       (config_.targetArrayTimeStep <= kMinStepS) || (config_.physicsTimeStep <= kMinStepS)) {
     throw std::invalid_argument("Drone altitude, acceleration path, angular speed and hit radius must be positive");
@@ -65,11 +65,11 @@ auto FileConfigLoader::load(const std::string& conf_source, const std::string& a
     json_file >> jsn;
 
     config_.initialPosition = {jsn["drone"]["position"]["x"], jsn["drone"]["position"]["y"]};
-    config_.altitude = jsn["drone"]["altitude"];
+    config_.kAltitude = jsn["drone"]["altitude"];
     config_.initialDirection = jsn["drone"]["initialDirection"];
     config_.attackSpeed = jsn["drone"]["attackSpeed"];
-    config_.accelerationPath = jsn["drone"]["accelerationPath"];
-    config_.angularSpeed = jsn["drone"]["angularSpeed"];
+    config_.kAccelerationPath = jsn["drone"]["accelerationPath"];
+    config_.maxAngularSpeedRadPerS = jsn["drone"]["angularSpeed"];
     config_.turnThreshold = jsn["drone"]["turnThreshold"];
 
     config_.hitRadius = jsn["simulation"]["hitRadius"];

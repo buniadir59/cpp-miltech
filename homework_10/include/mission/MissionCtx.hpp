@@ -1,32 +1,58 @@
 #pragma once
 
 #include "core_/TargetControl.hpp"
+#include "interfaces/IMissionState.hpp"
+#include "dto/DroneInterfaceStructures.hpp"
+#include "dto/MissionConfig.hpp"
 #include "math/point_math.hpp"
+#include "math/angle_math.hpp"
 
+#include <memory>
 #include <vector>
-//TODO remove comments
-
-namespace core {
-class DroneControl;
-}  // namespace core
 
 namespace mission {
 
+class Idle final : public IMissionState {
+public:
+  std::unique_ptr<IMissionState> execute(MissionCtx& ctx) override;
+  const char* name() const override { return "M_IDLE"; };
+};
+
+class Attack final : public IMissionState {
+public:
+  std::unique_ptr<IMissionState> execute(MissionCtx& ctx) override;
+  const char* name() const override { return "M_ATTACK"; };
+};
+
 struct MissionCtx {
+  const dto::MissionConfig& mconf;
   std::vector<core::TargetControl>& tgts;
-  core::DroneControl* drone = nullptr;
+  dto::DroneTelemetry telemetry;
 
- // double tgtTimeStep{0.0};  // from m config at init time
-  double kAccuracy_m{0.0};  // distance to destination to decide it is reached
+  const double kAccuracy_m;  // distance to destination to decide it is reached
+  const double kAccTime;
+  const double kAcceleration;
 
+  double timeToGainAttSpeed;
+  double distToGainAttSpeed;
+  double timeToStop;
+  double distToStop;
+  double instantAmmoFFTime;
+  double instantAmmoFFDist;
+  double ammoBaseFFTime;
+  double ammoBaseHDist;
 
   int currentTgtTag = -1;                  // no target
   core::TargetControl* currTgt = nullptr;  // changes state of the target if cannot be reached
 
+  pointmath::Point instantAimPoint;
   pointmath::Point tgtLeadPos;  //  up-dated @ calculating route to FP, used in json steps
   pointmath::Point firePoint;   //  up-dated @ calculating route to FP, used in json steps
 
-  auto getNextTarget() -> int;  // calls _getNextTarget, repeats search from the begining if needed
+  auto breakMission() -> void { currentTgtTag = -1; }  // TODO dro ne->flyAway();
+ 
+  [[nodiscard]] auto _getNextTarget(int idx) const -> int;
+  [[nodiscard]] auto getNextTarget() -> int; 
   auto setCurrentTgtTag(int tag) -> void
   {
     if (tag >= 0) {
@@ -34,18 +60,29 @@ struct MissionCtx {
       currTgt = &tgts[tag];
     }
   };
-  auto calcAttackRoute() -> int;
 
-  auto _checkFireCondition() -> bool;
-  auto _getCurrTgtLeadPos(double lead_time) const -> pointmath::Point;
-  auto breakMission() -> void;
-  // returns index of the active target starting from the idx till end of vector
-  // or-1 if no such target
-  auto _getNextTarget(int idx) const -> int;
+  [[nodiscard]] auto _getCurrTgtLeadPos(double lead_time) const -> pointmath::Point;
+  [[nodiscard]] auto calcAttackRoute() -> int;
+  [[nodiscard]] auto _checkFireCondition() -> bool;
+  [[nodiscard]] auto getDroneCoord() const -> pointmath::Point
+  {
+    return {static_cast<double>(telemetry.x), static_cast<double>(telemetry.y)};
+  }
+  [[nodiscard]] auto getMinTimeToTurn(anglemath::AngleRad delta_angle, double time_on_move) const -> double;
+  auto _updateSpeedDependentCtx() -> void;
 
-  MissionCtx(std::vector<core::TargetControl>& tgts) //, ISimulationClock* clock
-    : //simClock(clock),
-     tgts(tgts){};
+  MissionCtx(const dto::MissionConfig& mconf, std::vector<core::TargetControl>& tgts)
+    : mconf(mconf)
+    , tgts(tgts)
+    , kAccuracy_m(mconf.timeStep * mconf.attackSpeed / 2.0)
+    , kAccTime(mconf.kAccelerationPath * 2.0 / mconf.attackSpeed)
+    , kAcceleration(mconf.attackSpeed * mconf.attackSpeed / (mconf.kAccelerationPath * 2.0))
+  {
+    timeToGainAttSpeed = kAccTime;
+    distToGainAttSpeed = mconf.kAccelerationPath;
+    timeToStop = 0.0;
+    distToStop = 0.0;
+  };
 };
 
 }  // namespace mission

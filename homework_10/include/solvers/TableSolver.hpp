@@ -27,15 +27,6 @@ class TableSolver : public IBallisticSolver {
 public:
   TableSolver(const char* source);
 
-  /*   auto solve(const pointmath::Point& drone_position,
-               const pointmath::Point& target_position,
-               double altitude_m,
-               double att_speed,
-               double acc_path,
-               const dto::Ammo& ammo) -> dto::DropSolution override;
-
-    auto solve(const pointmath::Point& drone_position, const pointmath::Point& target_position) -> dto::DropSolution override; */
-
   auto solve(double altitude_m, double att_speed, const dto::Ammo& ammo) -> dto::BallisticResult override;
   const char* name() const override { return "TABLE_SOLVER"; };
 };

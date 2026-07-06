@@ -13,20 +13,11 @@ add_library(
     src/solvers/AnalyticalSolver.cpp
     src/config/FileConfigLoader.cpp
     src/core_/MissionProcessor.cpp
-    src/core_/DroneControl.cpp
     src/core_/TargetControl.cpp
     src/config/ComponentFactory.cpp
     src/solvers/TableSolver.cpp
     src/drone/DronePhysics.cpp
-    src/drone/DroneContext.cpp
-    src/drone/Stopped.cpp
-    src/drone/Turning.cpp
-    src/drone/Accelerating.cpp
-    src/drone/Decelerating.cpp
-    src/drone/Moving.cpp
     src/mission/MissionCtx.cpp
-    src/mission/Idle.cpp
-    src/mission/Attack.cpp
     )
 
 target_include_directories(

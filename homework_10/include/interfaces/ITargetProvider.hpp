@@ -1,7 +1,6 @@
 #pragma once
 
 #include "dto/Target.hpp"
-// #include "interfaces/ISimulationClock.hpp" //TODO clean comments
 
 // Провайдер цілей: кількість та дані кожної цілі (позиція, швидкість)
 
@@ -18,12 +17,12 @@ class ITargetProvider {
 public:
   virtual int getTargetCount() = 0;
   virtual dto::Target getTarget(int index) = 0;
-  virtual dto::Target getTarget(int idx, double& timestamp) = 0;  // TODO
+
   virtual void run() = 0;
   virtual auto start() -> void = 0;          // сигнал почати рух цілей
   virtual auto stop() -> void = 0;           // атомарний стоп-прапорець + join().
   virtual auto isThreadReady() -> bool = 0;  // потік створено, і він готовий стартувати.
-
+  virtual auto hasFailed() const -> bool = 0; //ended through expeption
   // default constructor & destructor
   ITargetProvider() = default;
   virtual ~ITargetProvider() = default;

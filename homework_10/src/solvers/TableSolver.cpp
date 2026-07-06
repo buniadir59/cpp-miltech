@@ -23,11 +23,11 @@ void TableSolver::validate_input() const
     throw std::invalid_argument("Ammo mass & drag must be positive, and lift must not be negative");
   }
 
-  if (input.drone_z <= 0.0) {
+  if (input.drone_z <= kEpsilon) {
     throw std::invalid_argument("Drone altitude must be positive");
   }
 
-  if (input.attack_speed <= 0.0) {
+  if (input.attack_speed <= kEpsilon) {
     throw std::invalid_argument("Attack speed must be positive");
   }
 }
