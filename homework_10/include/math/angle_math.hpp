@@ -59,7 +59,8 @@ struct AngleRad {
 };
 
 auto operator-(AngleRad a1, const AngleRad& a2) -> AngleRad;
-
 auto operator<<(std::ostream& os, const AngleRad& aR) -> std::ostream&;
 
+auto rad2Grad(double ang) -> int;
+auto normalizeAngle(double value) -> double;
 }  // namespace anglemath

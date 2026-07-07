@@ -5,7 +5,11 @@
 #include "interfaces/ITargetProvider.hpp"
 #include "interfaces/IBallisticSolver.hpp"
 #include "math/point_math.hpp"
-#include "config/defines.hpp"  //for LOG/DEBUG
+
+#define DBG_MODE
+#ifdef DBG_MODE                // #endif
+#include "config/defines.hpp"  //for DEBUG
+#endif
 
 #include <memory>
 #include <nlohmann/json.hpp>
@@ -18,9 +22,23 @@
 using json = nlohmann::json;
 
 namespace {
-auto stateToStr(unsigned int state_num) -> const char*
+auto stateToStr(unsigned int state_num, bool& fired) -> const char*
 {
+  if (fired) {
+    fired = false;
+    return "FIRED";
+  }
   switch (state_num) {
+      /* case dto::STOPPED:
+         return "STOP";
+       case dto::ACCELERATING:
+         return "ACCEL";
+       case dto::DECELERATING:
+         return "DECEL";
+       case dto::MOVING:
+         return "MOV";
+       case dto::TURNING:
+         return "TURN"; */
     case dto::STOPPED:
       return "STOPPED";
     case dto::ACCELERATING:
@@ -34,6 +52,7 @@ auto stateToStr(unsigned int state_num) -> const char*
   }
   return "UNKNWN";
 }
+
 }  // namespace
 namespace core {
 
@@ -49,7 +68,7 @@ auto MissionProcessor::run() noexcept -> void
 
     TimeTracker& tt = TimeTracker::getInstance();
 
-    while (!threadStopRequested.load() && hasNext()) {  // TODO Mission result code ???
+    while (!threadStopRequested.load() && hasNext()) {
       if (!step()) {
         break;
       }
@@ -80,7 +99,7 @@ bool MissionProcessor::step()
   mctx.telemetry = drone_.getTelemetry();
   if (mctx.telemetry.speed > 0.0) {
     dto::BallisticResult ballResult = solver_->solve(mctx.mconf.kAltitude, mctx.telemetry.speed, ammo);
-    // TODO check exception in Analytical solver
+
     mctx.instantAmmoFFTime = ballResult.ffTime;
     mctx.instantAmmoFFDist = ballResult.hDist;
   }
@@ -93,6 +112,7 @@ bool MissionProcessor::step()
   if (next) {
     mstate = std::move(next);
   }
+  drone_.sendCommand(mctx.cmd);
   pushStepToJSON();
 
   ++stats.steps;
@@ -117,7 +137,7 @@ auto MissionProcessor::updateTargets() -> void
         break;
 
       case ATTACKED:
-        if ((TimeTracker::getInstance().getElapsed() - targetDepo[i].hitTime) < mctx.mconf.timeStep / 2.0) {
+        if ((targetDepo[i].hitTime - TimeTracker::getInstance().getElapsed()) < mctx.mconf.timeStep / 2.0) {
           stats.firedCount++;
           double dist = pointmath::getLength(targetDepo[i].now.position - targetDepo[i].hitCoord);
           if (dist <= mctx.mconf.hitRadius) {
@@ -128,9 +148,10 @@ auto MissionProcessor::updateTargets() -> void
             targetDepo[i].state = core::ACTIVE;
           }
 
-          LOG(TimeTracker::getInstance().getElapsed()
-              << " Result= _ " << targetDepo[i].targetStateToStr() << " _ _ at_dist " << dist << " _ T#" << i << " TPos "
-              << targetDepo[i].now.position << "_ _ _ TSpeed= " << targetDepo[i].speed);
+          LOG(TimeTracker::getInstance().getElapsed()  // report on fire
+              << " T#" << i << " Res= " << targetDepo[i].targetStateToStr() << " at_dist " << dist << " hitXY: " << targetDepo[i].hitCoord.x
+              << ' ' << targetDepo[i].hitCoord.y << " TPos " << targetDepo[i].now.position.x << ' ' << targetDepo[i].now.position.y
+              << " TSpeed " << targetDepo[i].speed);
         }
 
         break;
@@ -168,6 +189,9 @@ auto MissionProcessor::init() -> void
   stats.solverName = solver_->name();
   stats.ammoName = ammo.name;
   mstate = std::make_unique<mission::Idle>();
+#ifdef DBG_MODE
+  DEBUG("Time TTime T# X: Y: FpX FpY D2FP T2FP DrDir° A2T° AimX AimY TlpX TlpY HiDist cmd.As cmd.St res DrSt MiSt");
+#endif
 }
 
 MissionProcessor::~MissionProcessor()
@@ -201,12 +225,10 @@ auto MissionProcessor::pushStepToJSON() -> void
 {
   pointmath::Point aimPoint = mctx.instantAimPoint;  // mission.getAmmoHDist());
   json step;
-  step["timeSecSinceStart"] =
-    mctx.telemetry
-      .timeSecSinceStart;  // крок х-дрона у-дрона кут-дрона стан-дрона ціль№
+  step["timeSecSinceStart"] = mctx.telemetry.timeSecSinceStart;  // крок х-дрона у-дрона кут-дрона стан-дрона ціль№
   step["position"] = {{"x", mctx.telemetry.x}, {"y", mctx.telemetry.y}};
   step["direction"] = mctx.telemetry.dir;
-  step["state"] = stateToStr(mctx.telemetry.state);
+  step["state"] = stateToStr(mctx.telemetry.state, mctx.fired);
   step["targetIndex"] = mctx.currentTgtTag;
 
   step["aimPoint"] = {{"x", aimPoint.x}, {"y", aimPoint.y}};
@@ -216,16 +238,22 @@ auto MissionProcessor::pushStepToJSON() -> void
 
     step["predictedTarget"] = {{"x", mctx.tgtLeadPos.x}, {"y", mctx.tgtLeadPos.y}};
   }
-  else {                                // no target, the fields not defined
-    step["dropPoint"] = nullptr;      
-    step["predictedTarget"] = nullptr; 
+  else {  // no target, the fields not defined
+    step["dropPoint"] = nullptr;
+    step["predictedTarget"] = nullptr;
   }
   j_out["steps"].push_back(step);
 
-  DEBUG(TimeTracker::getInstance().getElapsed()
-        << " telT=" << mctx.telemetry.timeSecSinceStart << " X: " << mctx.telemetry.x << " Y: " << mctx.telemetry.y << " Dir "
-        << mctx.telemetry.dir << " " << stateToStr(mctx.telemetry.state) << " T#" << mctx.currentTgtTag << " Aim " << aimPoint << " FP "
-        << mctx.firePoint << " TLP " << mctx.tgtLeadPos << " " << mstate->name());
+// DEBU G("Time TTime T# X: Y: FpX FpY D2FP T2FP DrDir A2T AimX AimY TlpX TlpY HiDist cmd.As cmd.St res DrSt MiSt");
+#ifdef DBG_MODE
+  DEBUG(TimeTracker::getInstance().getElapsed()  // full step report
+        << " " << mctx.telemetry.timeSecSinceStart << " " << mctx.currentTgtTag << " " << mctx.telemetry.x << " " << mctx.telemetry.y << " "
+        << mctx.firePoint.x << " " << mctx.firePoint.y << " " << mctx.dist2fp << " " << mctx.time2fp << " "
+        << anglemath::rad2Grad(mctx.telemetry.dir) << " " << anglemath::rad2Grad(mctx.angle_to_tgt) << " " << aimPoint.x << " "
+        << aimPoint.y << " " << mctx.tgtLeadPos.x << " " << mctx.tgtLeadPos.y << " " << mctx.hit_dist << " " << mctx.cmd.angleSpeed << " "
+        << stateToStr(mctx.cmd.state, mctx.fired) << " " << mctx.res_code << " " << stateToStr(mctx.telemetry.state, mctx.fired) << " "
+        << mstate->name());
+#endif
 }
 
 }  // namespace core

@@ -4,6 +4,11 @@
 #include "math/point_math.hpp"
 #include "math/angle_math.hpp"
 
+//#define DBG_MODE
+#ifdef DBG_MODE                // #endif
+#include "config/defines.hpp"  //for DEBUG
+#endif
+
 #include <memory>
 #include <optional>
 #include <thread>
@@ -93,9 +98,10 @@ void DronePhysics::transitionTo(dto::DroneState new_state, float angle_speed)
     angSpeed = angSpeed > 0 ? ctx.mconf.maxAngularSpeedRadPerS : -ctx.mconf.maxAngularSpeedRadPerS;
   }
   ctx.cmdAngSpeedRadPerS = angSpeed;
-  if ((angSpeed == 0.0) || (new_state == dto::TURNING)) {  // fix the state to reflect reality
+  if ((angSpeed == 0.0) && (new_state == dto::TURNING)) {  // fix the state to reflect reality
     new_state = dto::STOPPED;
   }
+
   switch (new_state) {
     case dto::STOPPED:                    // new state => stopped
       ctx.cmdAngSpeedRadPerS = 0.0;  // impose 0.0, state prevail
@@ -139,6 +145,10 @@ void DronePhysics::transitionTo(dto::DroneState new_state, float angle_speed)
       // turning or decelerating => no need to change
       break;
   }
+  #ifdef DBG_MODE                //
+  DEBUG("DBG_MODE_new_state_"<<new_state //cmddebug
+    << "__ctx.plannedState_" <<ctx.plannedState);
+  #endif
 }
 
 // #####################################################################

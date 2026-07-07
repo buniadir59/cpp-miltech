@@ -1,8 +1,13 @@
 #include "mission/MissionCtx.hpp"
 #include "core_/TimeTracker.hpp"
+#include "dto/DroneInterfaceStructures.hpp"
 #include "math/point_math.hpp"
 #include "math/angle_math.hpp"
-#include "config/defines.hpp"  //for LOG/DEBUG
+
+#define DBG_MODE
+#ifdef DBG_MODE                // #endif
+#include "config/defines.hpp"  //for DEBUG
+#endif
 
 #include <stdexcept>
 #include <cmath>
@@ -21,15 +26,19 @@ namespace mission {
 // checks what if we fire now()
 // returns true if fired
 auto MissionCtx::_checkFireCondition() -> bool
-{        // TODO check if 0.0 - have valid ballistic result?
+{
   pointmath::Point tlp = _getCurrTgtLeadPos(instantAmmoFFTime);  //@cfcond
-  double hit_dist = pointmath::getLength(instantAimPoint - tlp);
+  hit_dist = pointmath::getLength(instantAimPoint - tlp);
   if (hit_dist <= kAccuracy_m) {  // Fire
     firePoint = {telemetry.x, telemetry.y};
     currTgt->state = core::ATTACKED;
     currTgt->hitCoord = instantAimPoint;
-    currTgt->hitTime = TimeTracker::getInstance().getElapsed() + instantAmmoFFTime;
-    LOG("H=>" << currTgt->hitTime << " _ _ _ _ _ _ _ Fired! T#" << currentTgtTag << " hitXY " << currTgt->hitCoord);
+    auto tnow = TimeTracker::getInstance().getElapsed();
+    currTgt->hitTime = tnow + instantAmmoFFTime;
+    LOG(tnow << "  T#" << currentTgtTag << " Fired=>" << currTgt->hitTime << " hitXY: " << currTgt->hitCoord.x << ' ' << currTgt->hitCoord.y
+             << " TLP: " << tlp.x << " " << tlp.y << " h_d=" << hit_dist << " acc=" << kAccuracy_m << " %"
+             << std::fmod(tnow, mconf.targetArrayTimeStep));
+    fired = true;
     return true;
   }
   return false;
@@ -45,12 +54,11 @@ auto MissionCtx::calcAttackRoute() -> int
 
   double time_acc = currTgt->getAccuracyS(kAccuracy_m);
   pointmath::Point drPos = getDroneCoord();
-  double drDir = telemetry.dir;
+  double drDir = static_cast<double>(telemetry.dir);
 
-  double angle_to_tgt;
   double tmr = timeToGainAttSpeed;  // initial minimal estimation for time to FP -> time to gain Att speed
   int count = 0;
-  int res_code = 3;  // =>too many recalculations
+  res_code = 3;  // =>too many recalculations
 
   while (++count < kMaxRecalculations) {
     // get tgt lead pos, angle and dist  to tgt
@@ -59,20 +67,33 @@ auto MissionCtx::calcAttackRoute() -> int
     pointmath::trxPointToDistAngle(tgtLeadPos - drPos, dist_to_tgt, angle_to_tgt);
 
     firePoint = tgtLeadPos - pointmath::cossin(angle_to_tgt) * ammoBaseHDist;  // just to report
-    if (dist_to_tgt < ammoBaseHDist + distToGainAttSpeed) {                    // we aren't able to gain att speed TODO ?? week condition?
+    if (dist_to_tgt < ammoBaseHDist + distToGainAttSpeed) {                    // we aren't able to gain att speed
+    // TODO to improve ->check if we are able to decelerate and turn
       res_code = 1;
+#ifdef DBG_MODE  // #endif
+      DEBUG(TimeTracker::getInstance().getElapsed()
+            << " 1-T# " << currentTgtTag  // resC=1
+            << " d2tgt " << dist_to_tgt << " aBHD " << ammoBaseHDist << " d2AS " << distToGainAttSpeed << " dist2tgt<aBHD+d2AS" << " a2T "
+            << anglemath::rad2Grad(angle_to_tgt) << " drD " << anglemath::rad2Grad(drDir));
+#endif
       break;
     }
-    double dist2fp;
-    double time2fp;
-    // get dist to FP and angle to turn on the way
+    
+    //  get dist to FP and angle to turn on the way
     dist2fp = dist_to_tgt - ammoBaseHDist;
     time2fp = timeToGainAttSpeed + (dist2fp - distToGainAttSpeed) / mconf.attackSpeed;  // acc + cruize time, turn not accounted
 
     double min_time_to_turn = getMinTimeToTurn(angle_to_tgt - drDir, time2fp);
 
-    if (min_time_to_turn > kEps) {
-      res_code = 2;  // break mission => too much turn needed
+    if (min_time_to_turn >= mconf.timeStep) {  // kEps
+      res_code = 2;                            // break mission => too much turn needed
+#ifdef DBG_MODE                                // #endif
+      DEBUG(TimeTracker::getInstance().getElapsed()
+            << " 2-T# "  // resC=2
+            << currentTgtTag << " mt2t= " << min_time_to_turn << " dist2fp " << dist2fp << " time2fp " << time2fp << " d2AS "
+            << distToGainAttSpeed << " t2AS " << timeToGainAttSpeed << "tlp " << tgtLeadPos.x << "" << tgtLeadPos.y << " a2T "
+            << anglemath::rad2Grad(angle_to_tgt) << " drD " << anglemath::rad2Grad(drDir));
+#endif
       break;
     }
 
@@ -85,10 +106,36 @@ auto MissionCtx::calcAttackRoute() -> int
   }  // eo while
 
   if (!res_code) {  // ok, update destination for drone
-  // TODO put in context   drone->setDestToAttack(firePoint, angle_to_tgt);
+    double delta_angle = anglemath::normalizeAngle(angle_to_tgt - drDir);
+    double ang_speed = delta_angle / mconf.timeStep;
+    cmd.angleSpeed = static_cast<float>(ang_speed);
+    if (std::fabs(ang_speed) > mconf.maxAngularSpeedRadPerS) {  // speed will be limited by drone physics
+      double av_ang_speed = std::fabs(delta_angle / time2fp);
+      if (av_ang_speed > mconf.attackSpeed) {
+        if (telemetry.speed == 0.0) {
+          cmd.state = dto::TURNING;
+        }
+        else {
+          cmd.state = dto::DECELERATING;
+        }
+      }
+      else {
+        cmd.state = dto::MOVING;
+      }
+    }
     return 0;
-  }
+  }  // eo ok
+#ifdef DBG_MODE  // #endif
 
+  else {
+    if (res_code == 3) {
+      DEBUG(TimeTracker::getInstance().getElapsed()
+            << " 3-T# "  // resC=3
+            << currentTgtTag << " tAcc " << time2fp - tmr << " tmr " << tmr << " resC=3 dist2fp " << dist2fp << " time2fp " << time2fp
+            << " d2AS " << distToGainAttSpeed << " t2AS" << timeToGainAttSpeed);
+    }
+  }
+#endif
   currTgt->state = core::UNREACHABLE;
   return res_code;
 }
@@ -137,7 +184,7 @@ auto MissionCtx::_getCurrTgtLeadPos(double lead_time) const -> pointmath::Point
 
 // returns index of the active target starting from the ind,
 // or -1 if no such target
-auto MissionCtx::_getNextTarget(int idx) const -> int //TODO lambda
+auto MissionCtx::_getNextTarget(int idx) const -> int  // TODO lambda
 {
   int start_idx = idx < 0 ? 0 : idx;
   auto it = std::find_if(tgts.begin() + start_idx, tgts.end(), [](const core::TargetControl& tgt) { return tgt.state == core::ACTIVE; });
@@ -145,7 +192,7 @@ auto MissionCtx::_getNextTarget(int idx) const -> int //TODO lambda
   return it != tgts.end() ? std::distance(tgts.begin(), it) : -1;
 }
 
- // calls _getNextTarget, repeats search from the begining if needed
+// calls _getNextTarget, repeats search from the begining if needed
 auto MissionCtx::getNextTarget() -> int
 {
   int newIdx;

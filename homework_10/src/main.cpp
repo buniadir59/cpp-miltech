@@ -97,8 +97,8 @@ auto main(int argc, char* argv[]) -> int
   try {
     const auto paths = parseInputPaths(argc, argv);
     ComponentFactory factory;
-    auto solver = factory.createSolver(ComponentFactory::SolverType::TABLE, paths.ballisticTablePath);
 
+    auto solver = factory.createSolver(ComponentFactory::SolverType::TABLE, paths.ballisticTablePath);
     auto confLoader = factory.createLoader(ComponentFactory::LoaderType::FILE);
     if (confLoader == nullptr) {
       throw std::runtime_error("Configuration unavailable");
@@ -114,12 +114,8 @@ auto main(int argc, char* argv[]) -> int
     }
 
     physics = std::make_unique<drone::DronePhysics>(conf);
-    processor = std::make_unique<core::MissionProcessor>(conf, *tgtProvider.get(),
-                                                         std::move(solver),
-                                                         *physics.get(),
-                                                         confLoader->getAmmoParams(),
-                                                         defines::kMaxSteps,
-                                                         paths.simulationPath);
+    processor = std::make_unique<core::MissionProcessor>(
+      conf, *tgtProvider.get(), std::move(solver), *physics.get(), confLoader->getAmmoParams(), defines::kMaxSteps, paths.simulationPath);
 
     providerThread = std::thread(&ITargetProvider::run, tgtProvider.get());
     physicsThread = std::thread(&drone::DronePhysics::run, physics.get());

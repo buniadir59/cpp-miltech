@@ -10,7 +10,7 @@
 ## **Що змінюється:**
 Зміни щодо зауважень з рев'ю  ДЗ-9:
 1) прибрані залишки невикористовуваного кода щодо планування маршруту з IBallisticSolver і його імплементацій, що тягнулися з ДЗ-3.
-2) змінений (спрощений) дизайн симуляції - в момент першого скиду вона завершується.       //TODO скид окремим станом?
+2) момент скиду позначений спеціальним станом в вихідному json-файлі (FIRED=5).    
 3) доданий аналіз командного рядка - якщо в ньому є шляхи до вхідних файдів конфігурації, ammo, симіляції цілей, 
   балістичної таблиці і вихідного файла симуляції. Якщо значення відсутні, то використовуються значення з defines.hpp
 
@@ -36,21 +36,10 @@
 •       MissionProcessor не зберігає та не інтегрує стан дрона.
 •       Target містить лише поточні позицію та швидкість — без масиву координат.
 
-## Підказки
-•       Порядок розробки: спочатку зробіть DronePhysics і ThreadSafeQueue без потоків — викликайте крок фізики вручну
- з циклу місії та переконайтеся, що симуляція працює як у ДЗ9. Потім розносьте по потоках.
-•       #include <thread>, <mutex>, <atomic>, <chrono>, <queue>
-•       Сон на дробову кількість секунд: std::this_thread::sleep_for(std::chrono::duration<float>(dt / timeScale)) //TODO ?
-•       Тримайте критичні секції короткими: під lock_guard — лише копіювання даних. Жодних обчислень і тим більше sleep під замком.
-•       mutable std::mutex — щоб блокувати м'ютекс у const-методах (getTelemetry, getTarget).
-•       physicsTimeStep має бути меншим за simTimeStep: фізика повинна встигати виконати команди між кроками планувальника.
-
-•       Під Linux/WSL зберіть з -fsanitize=thread — ThreadSanitizer покаже гонки даних, які неозброєним оком не видно
-
 ## Структура репо
 
 ```
-homework_09/       
+homework_10/       
 ├── CMakeLists.txt       
 ├── README.md    
 ├── data/
@@ -67,22 +56,20 @@ homework_09/
 │ | └── ComponentFactory.hpp
 │ ├── core
 │ | ├── MissionProcessor.hpp
+│ | ├── ThreadSafeQueue.hpp
+│ | ├── TimeTracker.hpp
 │ | └── TargetControl.hpp
 │ ├── drone
-│ | ├── Acceleratin.hpp
-│ | ├── Decelerating.hpp
-│ | ├── Moving.hpp
-│ | ├── Stopped.hpp
-│ | └── Turning.hpp
+│ | └── DronePhysics.hpp
 │ ├── dto
 │ | ├── Ammo.hpp
-│ | ├── BallisticsіInput.hpp
+│ | ├── BallisticsInput.hpp
+│ | ├── BallisticResult.hpp
 │ | ├── DroneInterfaceStructures.hpp
 │ | ├── MissionConfig.hpp
 │ | ├── SimStatistics.hpp
 │ │ └── Target.hpp
 │ ├── interfaces/
-│ │ ├── ISimulationClock.hpp
 │ │ ├── ITargetProvider.hpp
 │ │ ├── IBallisticSolver.hpp
 │ │ ├── IDroneState.hpp
@@ -108,11 +95,7 @@ homework_09/
   │ ├── MissionProcessor.cpp
   │ └── TargetControl.cpp
   ├── drone
-  | ├── Accelerating.cpp
-  | ├── Decelerating.cpp
-  | ├── Moving.cpp
-  | ├── Stopped.cpp
-  | └── Turning.cpp
+  | └── DronePhysics.cpp
   ├── math/
   │ ├── angle_math.cpp
   │ └── point_math.cpp

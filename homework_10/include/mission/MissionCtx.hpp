@@ -6,6 +6,7 @@
 #include "dto/MissionConfig.hpp"
 #include "math/point_math.hpp"
 #include "math/angle_math.hpp"
+#include "config/defines.hpp"
 
 #include <memory>
 #include <vector>
@@ -15,13 +16,13 @@ namespace mission {
 class Idle final : public IMissionState {
 public:
   std::unique_ptr<IMissionState> execute(MissionCtx& ctx) override;
-  const char* name() const override { return "M_IDLE"; };
+  const char* name() const override { return "mIdle"; };
 };
 
 class Attack final : public IMissionState {
 public:
   std::unique_ptr<IMissionState> execute(MissionCtx& ctx) override;
-  const char* name() const override { return "M_ATTACK"; };
+  const char* name() const override { return "mAtt"; };
 };
 
 struct MissionCtx {
@@ -48,11 +49,22 @@ struct MissionCtx {
   pointmath::Point instantAimPoint;
   pointmath::Point tgtLeadPos;  //  up-dated @ calculating route to FP, used in json steps
   pointmath::Point firePoint;   //  up-dated @ calculating route to FP, used in json steps
+  double angle_to_tgt;          //  up-dated @ calculating route to FP
+  double time2fp;
+  double dist2fp;
+  double hit_dist;
+  int res_code;
+  bool fired{false};
+  dto::DroneCommand cmd;
 
-  auto breakMission() -> void { currentTgtTag = -1; }  // TODO dro ne->flyAway();
- 
+  auto breakMission() -> void
+  {
+    currentTgtTag = -1;
+    cmd = {dto::MOVING, 0.0};
+  }
+
   [[nodiscard]] auto _getNextTarget(int idx) const -> int;
-  [[nodiscard]] auto getNextTarget() -> int; 
+  [[nodiscard]] auto getNextTarget() -> int;
   auto setCurrentTgtTag(int tag) -> void
   {
     if (tag >= 0) {
@@ -74,7 +86,7 @@ struct MissionCtx {
   MissionCtx(const dto::MissionConfig& mconf, std::vector<core::TargetControl>& tgts)
     : mconf(mconf)
     , tgts(tgts)
-    , kAccuracy_m(mconf.timeStep * mconf.attackSpeed / 2.0)
+    , kAccuracy_m(mconf.timeStep * mconf.attackSpeed * ACCURACY_COEFF)
     , kAccTime(mconf.kAccelerationPath * 2.0 / mconf.attackSpeed)
     , kAcceleration(mconf.attackSpeed * mconf.attackSpeed / (mconf.kAccelerationPath * 2.0))
   {
