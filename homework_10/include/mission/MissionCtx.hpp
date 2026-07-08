@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core_/TargetControl.hpp"
+#include "mission/TargetControl.hpp"
 #include "interfaces/IMissionState.hpp"
 #include "dto/DroneInterfaceStructures.hpp"
 #include "dto/MissionConfig.hpp"

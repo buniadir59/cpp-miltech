@@ -1,5 +1,5 @@
 #include "mission/MissionCtx.hpp"
-#include "core_/TimeTracker.hpp"
+#include "config/TimeTracker.hpp"
 #include "dto/DroneInterfaceStructures.hpp"
 #include "math/point_math.hpp"
 #include "math/angle_math.hpp"
@@ -108,19 +108,17 @@ auto MissionCtx::calcAttackRoute() -> int
   if (!res_code) {  // ok, update destination for drone
     double delta_angle = anglemath::normalizeAngle(angle_to_tgt - drDir);
     double ang_speed = delta_angle / mconf.timeStep;
+    cmd.state = dto::MOVING;
     cmd.angleSpeed = static_cast<float>(ang_speed);
     if (std::fabs(ang_speed) > mconf.maxAngularSpeedRadPerS) {  // speed will be limited by drone physics
       double av_ang_speed = std::fabs(delta_angle / time2fp);
-      if (av_ang_speed > mconf.attackSpeed) {
+      if (av_ang_speed > mconf.maxAngularSpeedRadPerS) {
         if (telemetry.speed == 0.0) {
           cmd.state = dto::TURNING;
         }
         else {
           cmd.state = dto::DECELERATING;
         }
-      }
-      else {
-        cmd.state = dto::MOVING;
       }
     }
     return 0;

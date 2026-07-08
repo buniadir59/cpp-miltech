@@ -1,6 +1,6 @@
 #include "providers/ThreadSafeTargetProvider.hpp"
 #include "dto/Target.hpp"
-#include "core_/TimeTracker.hpp"
+#include "config/TimeTracker.hpp"
 #include "math/point_math.hpp"
 
 #include <cmath>
@@ -8,7 +8,6 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <exception>
-#include <stdexcept>
 #include <thread>
 #include <iostream>
 
@@ -16,12 +15,12 @@ using json = nlohmann::json;
 
 /* -sets threadReady;
    -waits for start;
-   -calls update() every arrayTimeStep / timeS cale;
+   -calls update() every target time step to provide respective coordinates and velociteis for targets
    -ends on request to stop. */
 void ThreadSafeTargetProvider::run() noexcept
 {
   try {
-    update();  // initial values
+    update();  // tracks initial values
     threadReady.store(true);
     while (!threadStart.load() && !threadStopRequested.load()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -33,7 +32,11 @@ void ThreadSafeTargetProvider::run() noexcept
     TimeTracker& tt = TimeTracker::getInstance();
 
     while (!threadStopRequested.load()) {
-      update();
+      update();  // every target time step
+      localTimeSec += tgtTimeStep;
+      if (localTimeSec >= trackDuration) {
+        localTimeSec -= trackDuration;
+      }
       auto wakeup = tt.nextWakeup(tgtTimeStep);
       std::this_thread::sleep_until(wakeup);
     }
@@ -52,14 +55,13 @@ void ThreadSafeTargetProvider::run() noexcept
 
 void ThreadSafeTargetProvider::update()
 {
-  const auto nTgts_ = tgtTracks.size();
   std::vector<dto::Target> tgt_now_;
-  tgt_now_.reserve(nTgts_);
+  tgt_now_.reserve(tgtTracks.size());  //=>5
 
-  const auto ind = static_cast<std::size_t>(localTimeSec / arrTimeStep);
-
-  const auto nextInd = (ind + 1) % nTgts_;
+  const auto ind = static_cast<std::size_t>(localTimeSec / arrTimeStep);  // by local time logic, not more than track duration
   const double timeInsideSegment = localTimeSec - static_cast<double>(ind) * arrTimeStep;
+
+  const auto nextInd = ind >= tgtTracks[0].size() ? 0 : (ind + 1);
 
   for (const auto& track : tgtTracks) {
     const auto& from = track[ind];
@@ -76,8 +78,6 @@ void ThreadSafeTargetProvider::update()
     std::lock_guard<std::mutex> lock(tgtsMutex);  //@updating targets
     currTgts = std::move(tgt_now_);
   }
-
-  localTimeSec = std::fmod(localTimeSec + tgtTimeStep, trackDuration);
 }
 
 auto ThreadSafeTargetProvider::getTarget(int idx) -> dto::Target
@@ -90,8 +90,9 @@ auto ThreadSafeTargetProvider::getTarget(int idx) -> dto::Target
   return currTgts[idx];
 }
 
-auto ThreadSafeTargetProvider::parseJson(const std::string& source) -> void
+auto ThreadSafeTargetProvider::parseJson(const std::string& source) -> std::vector<std::vector<pointmath::Point>>
 {
+  std::vector<std::vector<pointmath::Point>> tgtTracks;
   std::ifstream json_file(source);
 
   if (!json_file.is_open()) {
@@ -102,8 +103,8 @@ auto ThreadSafeTargetProvider::parseJson(const std::string& source) -> void
     json tgts_j;
     json_file >> tgts_j;
 
-    int tgtCount_ = tgts_j["targetCount"];
-    int nOfTgtTimeSteps_ = tgts_j["timeSteps"];
+    size_t tgtCount_ = tgts_j["targetCount"];
+    size_t nOfTgtTimeSteps_ = tgts_j["timeSteps"];
 
     // validate target params
     if ((tgtCount_ > kMaxTargetCount) || (nOfTgtTimeSteps_ > kMaxTargetTimeSteps) || (nOfTgtTimeSteps_ < 2)) {
@@ -126,9 +127,11 @@ auto ThreadSafeTargetProvider::parseJson(const std::string& source) -> void
 
       tgtTracks.push_back(std::move(track));
     }
+
   }
 
   catch (const std::exception& error) {
     throw std::runtime_error("Error loading targets");
   }
+  return tgtTracks;
 }

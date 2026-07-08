@@ -1,4 +1,4 @@
-#include "core_/TargetControl.hpp"
+#include "mission/TargetControl.hpp"
 #include "math/point_math.hpp"
 
 namespace {

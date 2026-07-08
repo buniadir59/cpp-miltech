@@ -3,7 +3,7 @@
 #include "dto/DroneInterfaceStructures.hpp"
 #include "dto/MissionConfig.hpp"
 #include "interfaces/IDroneState.hpp"
-#include "core_/ThreadSafeQueue.hpp"
+#include "drone/ThreadSafeQueue.hpp"
 
 #include <cmath>
 #include <atomic>

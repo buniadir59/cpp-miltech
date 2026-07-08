@@ -52,14 +52,11 @@ homework_10/
 ├── include/                  ## declarations of classes, interfaces structures
 │ ├── config/
 │ | ├── defines.hpp
+│ | ├── TimeTracker.hpp
 │ | ├── FileConfigLoader.hpp
 │ | └── ComponentFactory.hpp
-│ ├── core
-│ | ├── MissionProcessor.hpp
-│ | ├── ThreadSafeQueue.hpp
-│ | ├── TimeTracker.hpp
-│ | └── TargetControl.hpp
 │ ├── drone
+│ | ├── ThreadSafeQueue.hpp
 │ | └── DronePhysics.hpp
 │ ├── dto
 │ | ├── Ammo.hpp
@@ -79,7 +76,9 @@ homework_10/
 │ │ ├── angle_math.hpp
 │ │ └── point_math.hpp
 │ ├── mission/
-│ │ └── MissionCtx.hpp
+│ | ├── MissionProcessor.hpp
+│ │ ├── MissionCtx.hpp
+│ | └── TargetControl.hpp
 │ ├── providers/
 │ │ └── ThreadSafeTargetProvider.hpp
 │ └──  solvers/
@@ -89,17 +88,16 @@ homework_10/
 └── src/                      ## implementation of methods
   ├── main.cpp
   ├── config/
+  │ ├── TargetControl.cpp
   | ├── FileConfigLoader.cpp
   | └── ComponentFactory.cpp
-  ├── core
-  │ ├── MissionProcessor.cpp
-  │ └── TargetControl.cpp
   ├── drone
   | └── DronePhysics.cpp
   ├── math/
   │ ├── angle_math.cpp
   │ └── point_math.cpp
   ├── mission/
+  │ ├── MissionProcessor.cpp
   │ └── MissionCtx.cpp
   ├── providers/
   │ └── ThreadSafeTargetProvider.cpp

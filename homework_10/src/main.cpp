@@ -1,5 +1,5 @@
-#include "core_/MissionProcessor.hpp"
-#include "core_/TimeTracker.hpp"
+#include "mission/MissionProcessor.hpp"
+#include "config/TimeTracker.hpp"
 #include "config/ComponentFactory.hpp"
 #include "config/defines.hpp"
 #include "dto/SimStatistics.hpp"

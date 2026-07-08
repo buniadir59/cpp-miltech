@@ -1,5 +1,5 @@
-#include "core_/MissionProcessor.hpp"
-#include "core_/TimeTracker.hpp"
+#include "mission/MissionProcessor.hpp"
+#include "config/TimeTracker.hpp"
 #include "dto/BallisticResult.hpp"
 #include "dto/Target.hpp"
 #include "interfaces/ITargetProvider.hpp"
@@ -16,7 +16,6 @@
 #include <cmath>
 #include <fstream>
 #include <algorithm>
-#include <string>
 #include <thread>
 
 using json = nlohmann::json;
@@ -29,16 +28,6 @@ auto stateToStr(unsigned int state_num, bool& fired) -> const char*
     return "FIRED";
   }
   switch (state_num) {
-      /* case dto::STOPPED:
-         return "STOP";
-       case dto::ACCELERATING:
-         return "ACCEL";
-       case dto::DECELERATING:
-         return "DECEL";
-       case dto::MOVING:
-         return "MOV";
-       case dto::TURNING:
-         return "TURN"; */
     case dto::STOPPED:
       return "STOPPED";
     case dto::ACCELERATING:

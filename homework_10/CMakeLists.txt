@@ -12,8 +12,8 @@ add_library(
     src/providers/ThreadSafeTargetProvider.cpp
     src/solvers/AnalyticalSolver.cpp
     src/config/FileConfigLoader.cpp
-    src/core_/MissionProcessor.cpp
-    src/core_/TargetControl.cpp
+    src/mission/MissionProcessor.cpp
+    src/mission/TargetControl.cpp
     src/config/ComponentFactory.cpp
     src/solvers/TableSolver.cpp
     src/drone/DronePhysics.cpp

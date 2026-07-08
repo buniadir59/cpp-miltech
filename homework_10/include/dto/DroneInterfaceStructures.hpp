@@ -6,8 +6,8 @@ namespace dto {
 enum DroneState : std::uint8_t { STOPPED = 0, ACCELERATING, DECELERATING, TURNING, MOVING };
 
 struct DroneCommand {
-  DroneState state;  // новий режим
-  float angleSpeed;  // Кутова швидкість повороту Rad/sec
+  DroneState state = STOPPED;  // новий режим
+  float angleSpeed = 0.0F;  // Кутова швидкість повороту Rad/sec
 };
 
 /* timeSecSinceStart -  це час останнього оновлення значень фізики.

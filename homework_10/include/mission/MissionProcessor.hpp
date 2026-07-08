@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core_/TargetControl.hpp"
+#include "mission/TargetControl.hpp"
 #include "mission/MissionCtx.hpp"
 #include "interfaces/IMissionState.hpp"
 #include "dto/SimStatistics.hpp"
@@ -11,6 +11,8 @@
 #include <nlohmann/json.hpp>
 #include <vector>
 #include <atomic>
+#include <string>
+#include <utility>
 
 class ITargetProvider;
 class IBallisticSolver;
@@ -36,14 +38,14 @@ class MissionProcessor {
   drone::DronePhysics& drone_;
   nlohmann::json j_out;
 
+  std::vector<TargetControl> targetDepo;
   mission::MissionCtx mctx;
   std::unique_ptr<IMissionState> mstate = nullptr;
 
-  std::vector<TargetControl> targetDepo;
 
   const dto::Ammo ammo;
   const int kMaxSteps;
-  const std::string& simulationPath;
+  const std::string simulationPath;
   dto::SimStatistics stats;  // includes steps, incremented through simulation until maximum
 
   auto updateTargets() -> void;   // get new targets position and velocity values
@@ -73,16 +75,14 @@ public:
                    drone::DronePhysics& drone,
                    dto::Ammo ammo,
                    int kMaxSteps,
-                   const std::string& simulationPath)
-    : /*  mconf(mconf)
-     ,  */
-    targets_(targets)
+                   const std::string simulationPath)
+    : targets_(targets)
     , solver_(std::move(solver))
     , drone_(drone)
     , mctx(mconf, targetDepo)
     , ammo(ammo)
     , kMaxSteps(kMaxSteps)
-    , simulationPath(simulationPath){};
+    , simulationPath(std::move(simulationPath)){};
 
   ~MissionProcessor();
 };
