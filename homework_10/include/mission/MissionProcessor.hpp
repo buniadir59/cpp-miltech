@@ -12,7 +12,6 @@
 #include <vector>
 #include <atomic>
 #include <string>
-#include <utility>
 
 class ITargetProvider;
 class IBallisticSolver;
@@ -82,7 +81,7 @@ public:
     , mctx(mconf, targetDepo)
     , ammo(ammo)
     , kMaxSteps(kMaxSteps)
-    , simulationPath(std::move(simulationPath)){};
+    , simulationPath(simulationPath){};
 
   ~MissionProcessor();
 };

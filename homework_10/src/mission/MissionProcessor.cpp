@@ -25,7 +25,7 @@ auto stateToStr(unsigned int state_num, bool& fired) -> const char*
 {
   if (fired) {
     fired = false;
-    return "FIRED";
+    return "ATTACK";
   }
   switch (state_num) {
     case dto::STOPPED:

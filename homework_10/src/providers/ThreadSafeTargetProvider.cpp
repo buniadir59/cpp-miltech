@@ -33,10 +33,9 @@ void ThreadSafeTargetProvider::run() noexcept
 
     while (!threadStopRequested.load()) {
       update();  // every target time step
-      localTimeSec += tgtTimeStep;
-      if (localTimeSec >= trackDuration) {
-        localTimeSec -= trackDuration;
-      }
+      
+      localTimeSec = std::fmod(localTimeSec+tgtTimeStep, trackDuration);
+
       auto wakeup = tt.nextWakeup(tgtTimeStep);
       std::this_thread::sleep_until(wakeup);
     }
@@ -57,11 +56,10 @@ void ThreadSafeTargetProvider::update()
 {
   std::vector<dto::Target> tgt_now_;
   tgt_now_.reserve(tgtTracks.size());  //=>5
-
+  const auto nSteps = tgtTracks.front().size();
   const auto ind = static_cast<std::size_t>(localTimeSec / arrTimeStep);  // by local time logic, not more than track duration
+  const auto nextInd = (ind + 1) % nSteps;
   const double timeInsideSegment = localTimeSec - static_cast<double>(ind) * arrTimeStep;
-
-  const auto nextInd = ind >= tgtTracks[0].size() ? 0 : (ind + 1);
 
   for (const auto& track : tgtTracks) {
     const auto& from = track[ind];
@@ -127,7 +125,6 @@ auto ThreadSafeTargetProvider::parseJson(const std::string& source) -> std::vect
 
       tgtTracks.push_back(std::move(track));
     }
-
   }
 
   catch (const std::exception& error) {
