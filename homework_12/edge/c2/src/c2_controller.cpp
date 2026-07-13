@@ -6,13 +6,15 @@
 
 #include <fstream>
 #include <iostream>
+#include <stdexcept>
 #include <string>
+#include <sstream>
+#include <cstddef>
 
 /*
 read FC state
 read waypoint
-apply safety policy
-forward or block
+apply safety policy - forward or block
 
 | C2 state       | Armed | FC mode   | Waypoint  | Додаткова дія               |
 | -------------- | ----: | --------- | --------- | --------------------------- |
@@ -20,20 +22,48 @@ forward or block
 | `ARMED_HOLD`   |   yes | Hold      | blocked   | `hold()` один раз при вході |
 | `ARMED_GUIDED` |   yes | Guided    | forwarded | `go_to_ned()`               |
 | `ARMED_MANUAL` |   yes | Manual    | blocked   | не заважати оператору       |
-
 */
+
 namespace {
+
+constexpr std::size_t kUdpMaxSize = 1500;  // розмір буфера для читання пакета
+
+struct Waypoint {
+  float north_m{0.0};
+  float east_m{0.0};
+  bool has_data = false;
+};
+
+Waypoint parseWaypointPacket(const std::array<char,kUdpMaxSize>& buffer, std::size_t count)
+{
+  Waypoint result{};
+
+  try {
+    const auto data = nlohmann::json::parse(buffer.begin(), buffer.begin() + count);
+
+    result.north_m = data.at("north_m").get<float>();
+    result.east_m = data.at("east_m").get<float>();
+    result.has_data = true;
+  }
+  catch (const nlohmann::json::exception& e) {
+    std::cerr << "[C2] error: invalid waypoint: " << e.what() << '\n';
+    // signal_unhealthy() - not required
+  }
+
+  return result;
+}
+
 std::string stateToString(C2State state)
 {
   switch (state) {
     case C2State::DISARMED:
       return "DISARMED";
     case C2State::ARMED_HOLD:
-      return "";
+      return "ARMED_HOLD";
     case C2State::ARMED_GUIDED:
-      return "";
+      return "ARMED_GUIDED";
     case C2State::ARMED_MANUAL:
-      return "";
+      return "ARMED_MANUAL";
     default:
       return "Unknown_state";
   }
@@ -45,22 +75,11 @@ static constexpr uint16_t STUB_PORT = 14560;
 
 struct C2Controller::Impl {
   FcLink fc;           // блокується до вiдповiдi автопiлота (30 s)
-  std::ofstream flog;  //("/etc/c2/c2_config.json");
+  std::ofstream flog; 
   C2State state = C2State::DISARMED;
   UdpSocket udp_stub;
-  // TODO:та прапорцi стану.????
-
-  // якщо next != state, записати "PREV -> NEW" у stdout i лог,
-  //  потiм оновити state. Якщо стан не змiнився, нiчого не писати.
-  void transition(C2State next)
-  {
-    if (next != state) {
-      std::string s = "[log]" + stateToString(state) + " -> " + stateToString(next) + '\n';
-      std::cout << s;
-      flog << s;
-      state = next;
-    }
-  }
+  bool health_signalled = false;
+  std::array<char, kUdpMaxSize> buffer{};
 
   // constructor приймає fc_port і створює fc object, також  створює об'єкти
   // udp-сокета і лог-файла та відкриває лог-файл "/var/log/c2/c2.log"
@@ -70,12 +89,91 @@ struct C2Controller::Impl {
     , udp_stub(STUB_PORT)  // UdpSocket має слухати STUB_PORT.
   {
     if (!flog.is_open()) {
-      std::cerr << "[C2] error: cannot open /var/log/c2/c2.log\n";
+      throw std::runtime_error("[C2] error: cannot open /var/log/c2/c2.log\n");
     }
   }
-};
 
-// передати fc_port в Impl та вiдкрити /var/log/c2/c2.log.
+  void update_connection_health()
+  {
+    if (!health_signalled && fc.is_connected()) {  // <= got first HEARTBEAT from fc
+      std::ofstream("/tmp/c2_healthy").close();
+      health_signalled = true;
+    }
+  }
+
+  // якщо next != state, записати у stdout i лог: [C2] state: PREV -> NEW, потiм оновити state.
+  void transition(C2State next)
+  {
+    if (next != state) {
+      // для входу в ARMED_HOLD має бути організований одноразовий hold()
+      if (next == C2State::ARMED_HOLD) {
+        fc.hold();
+      }
+      std::string s = "[C2] state: " + stateToString(state) + " -> " + stateToString(next) + '\n';
+      log(s);
+      state = next;
+    }
+  }
+
+  void update_state()
+  {
+    C2State next = state;
+    // Визначити актуальний стан
+    if (!fc.is_armed()) {
+      next = C2State::DISARMED;
+    }
+    else {
+      switch (fc.flight_mode()) {
+        case FcLink::FlightMode::Hold:
+          next = C2State::ARMED_HOLD;
+          break;
+        case FcLink::FlightMode::Guided:
+          next = C2State::ARMED_GUIDED;
+          break;
+        case FcLink::FlightMode::Manual:
+        default:
+          next = C2State::ARMED_MANUAL;
+          break;
+      }
+    }
+    // Зробити перехід
+    transition(next);
+  }
+
+  void process_waypoint()
+  {
+    // try to read waypoint w/UdpSocket unblocking => recv(...) might return -1
+    // if no packet
+    const auto bytes_received = udp_stub.recv(buffer.data(), buffer.size());
+
+    if (bytes_received > 0) {
+      // parse JSON, check status and forward or block
+      Waypoint wpt = parseWaypointPacket(buffer, bytes_received);
+      if (wpt.has_data) {
+        std::string s;
+        if (state == C2State::ARMED_GUIDED) {
+          fc.go_to_ned(wpt.north_m, wpt.east_m);
+          std::ostringstream oss;
+          oss << "[C2] fwd: north=" << wpt.north_m << " east=" << wpt.east_m << '\n';
+          s = oss.str();
+        }
+        else {
+          s = "[C2] blocked: waypoint in " + stateToString(state) + '\n';
+        }
+        log(s);
+      }
+    }
+  }
+
+  void log(const std::string& message)
+  {
+    std::cout << message << std::flush;
+    flog << message << std::flush;
+  }
+
+};  // eo Impl struct
+
+// transfer fc_port to and call Impl constructor
 C2Controller::C2Controller(uint16_t fc_port)
   : impl_(std::make_unique<Impl>(fc_port))
 {
@@ -83,76 +181,16 @@ C2Controller::C2Controller(uint16_t fc_port)
 
 C2Controller::~C2Controller() = default;
 
-/*         try {
-            f >> cfg;
-        } catch (const nlohmann::json::exception& e) {
-            std::cerr << "[C2] error: invalid config: " << e.what() << "\n";
-
-        } */
 void C2Controller::tick()
 {
-  // TODO: healthcheck, 
-  // TODO оновлення C2State, 
-  // TODO читання точки маршруту,
-  // TODO передавання або блокування команди згiдно з поточним станом.
+  // healthcheck
+  impl_->update_connection_health();
 
-  /*
-Кожен tick() має зробити приблизно чотири речі.
+  // update C2State
+  impl_->update_state();
 
-1. Перевірити health
-if (fc.is_connected()) {
-    create /tmp/c2_healthy;
-}
-2. Визначити актуальний стан
-if (!fc.is_armed()) {
-    next = DISARMED;
-} else {
-    switch (fc.flight_mode()) {
-        case Hold:
-            next = ARMED_HOLD;
-            break;
-        case Guided:
-            next = ARMED_GUIDED;
-            break;
-        case Manual:
-        default:
-            next = ARMED_MANUAL;
-            break;
-    }
-}
-3. Зробити transition
-transition(next);
-
-transition():
-
-нічого не робить, якщо стан не змінився;
-логгує PREV -> NEW;
-оновлює state;
-для входу в ARMED_HOLD має бути організований одноразовий hold().
-4. Спробувати прочитати waypoint
-
-UdpSocket неблокуючий.
-
-Тобто:
-
-recv(...)
-
-може повернути:
-
--1
-
-якщо зараз повідомлення немає.
-
-Тоді tick() просто завершується.
-
-Якщо повідомлення є:
-
-парсить JSON;
-дивиться на поточний стан;
-або forwarding;
-або blocked.
-*/
-
+  // read waypoint, and process it according to the current state
+  impl_->process_waypoint();
 }
 
 C2State C2Controller::current_state() const
