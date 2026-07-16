@@ -1,0 +1,5 @@
+# Логи C2 мають лишатися на машинi, де запускався compose stack.
+robot_ws/log/
+robot_ws/install/
+robot_ws/.cache
+
