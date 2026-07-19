@@ -68,7 +68,8 @@
         "josetr.cmake-language-support-vscode",
         "cheshirekow.cmake-format",
         "ms-vscode.cpptools",
-        "llvm-vs-code-extensions.vscode-clangd"
+        "llvm-vs-code-extensions.vscode-clangd",
+        "shd101wyy.markdown-preview-enhanced" //to read graphs plantuml
       ],
       "settings": {
         // clangd читає build/debug/compile_commands.json з debug preset.
