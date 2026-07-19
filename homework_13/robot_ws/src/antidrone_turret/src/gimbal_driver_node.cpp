@@ -49,7 +49,7 @@ private:
   void on_gimbal_cmd(antidrone_turret::msg::GimbalCommand cmd)
   {
     RCLCPP_INFO(get_logger(),  // gimbal_driver_node отримав: direction=UP target_y=180 error_y=60
-                "received command: direction=%s target_y=%.1f error_y=%.1f",
+                "received command: direction=%s, target_y=%.1f, error_y=%.1f",
                 gimbal_direction_to_str(cmd.direction),
                 cmd.target_y,
                 cmd.error_y);

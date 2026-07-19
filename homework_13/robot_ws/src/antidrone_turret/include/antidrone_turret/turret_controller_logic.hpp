@@ -4,21 +4,21 @@
 #include <optional>
 
 /*
-  У чистій C++ логіці потрібно виділити щонайменше такі частини:
-- команда yaw-серво: `Target.x` -> `ServoCommand.direction`, `target_x`,
-  `error_x`;
-- команда гімбала: `Target.y` -> `GimbalCommand.direction`, `target_y`,
-  `error_y`;
-- рішення щодо пострілу: `distance_m`, `max_distance_m`,
-  останній `ActuatorStatus.state` -> `TRIGGER_SKIP`, `TRIGGER_REQUESTED` або
-  `TRIGGER_RELOADING`;
+  У чистій C++ логіці яка викликається на кожне повідомлення про ціль (функція decide_on_target)
+  виділено  такі частини:
+- оцінка цілі evaluate_target()
+- команда yaw-серво: make_servo_decision()
+- команда гімбала: make_gimbal_decision()
+- рішення щодо пострілу: make_trigger_decision()
 - складання `TurretStatus` для перевірки через `/turret/status`.
 */
 
 namespace antidrone_turret {
 
+/* not used
 inline constexpr auto kFrameWidth = 640;
-inline constexpr auto kFrameHight = 480;
+inline constexpr auto kFrameHeight = 480; */
+
 inline constexpr auto kCenterX = 320;
 inline constexpr auto kCenterY = 240;
 
@@ -71,15 +71,15 @@ enum class ServoDirection : std::int8_t {
 };
 
 struct ServoCmd {
-  float target_x;            // - скопійоване значення Target.x;
-  float error_x;             // = Target.x - 320.0;
-  ServoDirection direction;  //=RIGHT, якщо error_x > 0; =LEFT, якщо error_x < 0; =CENTER, якщо error_x == 0.
+  float target_x{};            // - скопійоване значення Target.x;
+  float error_x{};             // = Target.x - 320.0;
+  ServoDirection direction{ServoDirection::kCenter};  //=RIGHT, якщо error_x > 0; =LEFT, якщо error_x < 0; =CENTER, якщо error_x == 0.
 };
 
 struct GimbalCmd {
-  float target_y;             // - скопійоване значення Target.y;
-  float error_y;              // = 240.0 - Target.y;
-  GimbalDirection direction;  //=UP, якщо error_y > 0; =DOWN, якщо error_y < 0;=CENTER, якщо error_y == 0
+  float target_y{};             // - скопійоване значення Target.y;
+  float error_y{};              // = 240.0 - Target.y;
+  GimbalDirection direction{GimbalDirection::kCenter};  //=UP, якщо error_y > 0; =DOWN, якщо error_y < 0;=CENTER, якщо error_y == 0
 };
 
 struct TurretDecision {
@@ -89,7 +89,7 @@ struct TurretDecision {
   ServoCmd servo;
   GimbalCmd gimbal;
 
-  float confidence;  // оцінка надійності розпізнавання цілі 0.0..1.0 - в кадрі саме FPV-ціль, а не шум або інший об'єкт.
+  float confidence;  // оцінка надійності розпізнавання цілі (0..1)- в кадрі саме FPV-ціль, а не щось інше
   float distance_m;
 
   TurretDecision(float confidence, float distance_m)
@@ -99,13 +99,13 @@ struct TurretDecision {
 
 // оцінка цілі: `visible`, `confidence_threshold` -> `TARGET_NONE`,
 //  `TARGET_LOW_CONFIDENCE` або `TARGET_LOCKED`;
-[[nodiscard]] TargetState evaluate_target(const TargetObservation& target, const antidrone_turret::ControllerConfig& config) 
+[[nodiscard]] TargetState evaluate_target(const TargetObservation& target, double confidence_threshold)
 {
   if (!target.visible) {
     return TargetState::kTargetNone;
   }
 
-  if (target.confidence < config.confidence_threshold) {
+  if (target.confidence < confidence_threshold) {
     return TargetState::kTargetLowConfidence;
   }
 
@@ -125,18 +125,20 @@ ServoCmd make_servo_decision(float target_x)
 {
   ServoCmd cmd;
   cmd.target_x = target_x;
-  cmd.error_x = kCenterX - target_x;
+  cmd.error_x = target_x - kCenterX;
   cmd.direction = cmd.error_x < 0 ? ServoDirection::kLeft : (cmd.error_x > 0 ? ServoDirection::kRight : ServoDirection::kCenter);
   return cmd;
 }
 
-/* 
+/*
 - `distance_m <= max_distance_m` і актуатор `READY` ->  `TRIGGER_REQUESTED`;
 - `distance_m <= max_distance_m` і актуатор `RELOADING` -> `TRIGGER_RELOADING`;
 - `distance_m > max_distance_m` -> `TRIGGER_SKIP`. */
-[[nodiscard]] auto make_trigger_decision(float distance_m, float max_distance_m, std::optional<ActuatorState> actuator_state) -> TriggerDecision
+[[nodiscard]] auto make_trigger_decision(float distance_m,
+                                         double max_distance_m,
+                                         std::optional<ActuatorState> actuator_state) -> TriggerDecision
 {
-  if (distance_m > max_distance_m) { //далеко
+  if (distance_m > max_distance_m) {  // далеко
     return TriggerDecision::kTriggerSkip;
   }
 
@@ -152,22 +154,27 @@ ServoCmd make_servo_decision(float target_x)
   return TriggerDecision::kTriggerReloading;
 }
 
-
 TurretDecision decide_on_target(const TargetObservation& target,
                                 std::optional<ActuatorState> actuator_state,
                                 const antidrone_turret::ControllerConfig& config)
 {
   TurretDecision decision(target.confidence, target.distance_m);
-  decision.target_state = evaluate_target(target, config);
+  decision.target_state = evaluate_target(target, config.confidence_threshold);
 
-  if ((decision.target_state == TargetState::kTargetNone) || (decision.target_state == TargetState::kTargetLowConfidence)) {
+  if (decision.target_state == TargetState::kTargetNone) {
     //- `visible=false` -> `TARGET_NONE`, `ACTION_IDLE`, `TRIGGER_SKIP`;
     return decision;
   }
 
-  decision.action = Action::kActionTrack;
   decision.gimbal = make_gimbal_decision(target.y);
   decision.servo = make_servo_decision(target.x);
+
+  if (decision.target_state == TargetState::kTargetLowConfidence) {
+    // low confidence -> `TARGET_NONE`, `ACTION_IDLE`, `TRIGGER_SKIP`;
+    return decision;
+  }
+
+  decision.action = Action::kActionTrack;
   decision.trigger_decision = make_trigger_decision(target.distance_m, config.max_distance_m, actuator_state);
 
   return decision;

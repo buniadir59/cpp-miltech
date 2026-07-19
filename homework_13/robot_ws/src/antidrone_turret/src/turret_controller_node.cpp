@@ -11,34 +11,7 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <chrono>
-
-// subcribe to:
-//      /actuator/status
-//      /perception/target
-// publish to:
-//      /servo/cmd
-//      /gimbal/cmd topics
-//      /turret/status message
-// call
-//      /actuator/trigger service
-
-/* контролер спочатку вирішує, куди навести турель, а команду пострілу надсилає окремо -
- тоді, коли ціль достатньо близько, розпізнавання достатньо надійне, а актуатор  READY */
-
-/* callback для /perception/target має виконувати приблизно таку послідовність:
-ROS Target
-   ↓ конвертація
-чистий C++ TargetObservation
-   ↓
-turret controller logic
-   ↓
-TurretDecision
-   ├── publish TurretStatus завжди
-   ├── publish GimbalCommand, якщо ACTION_TRACK
-   ├── publish ServoCommand, якщо ACTION_TRACK
-   └── async service request, якщо TRIGGER_REQUESTED
-    */
+#include <chrono>  //for chrono_literals - Дозволяє використовувати суфікси s, ms, ns
 
 namespace {
 
@@ -61,14 +34,14 @@ std::uint8_t to_message_target_state(const antidrone_turret::TargetState state)
            : (state == TargetState::kTargetLowConfidence ? TurretStatus::TARGET_LOW_CONFIDENCE : TurretStatus::TARGET_NONE);
 }
 
-std::uint8_t to_message_gimbal_direction(const antidrone_turret::GimbalDirection dir)
+std::int8_t to_message_gimbal_direction(const antidrone_turret::GimbalDirection dir)
 {
   using GimbalCommand = antidrone_turret::msg::GimbalCommand;
   using GimbalDirection = antidrone_turret::GimbalDirection;
   return dir == GimbalDirection::kDown ? GimbalCommand::DOWN : (dir == GimbalDirection::kUp ? GimbalCommand::UP : GimbalCommand::CENTER);
 }
 
-std::uint8_t to_message_servo_direction(const antidrone_turret::ServoDirection dir)
+std::int8_t to_message_servo_direction(const antidrone_turret::ServoDirection dir)
 {
   using ServoCommand = antidrone_turret::msg::ServoCommand;
   using ServoDirection = antidrone_turret::ServoDirection;
@@ -92,7 +65,7 @@ auto to_message_actuator_state(const antidrone_turret::msg::ActuatorStatus& msg)
 }
 }  // namespace
 
-class TurretControlNode final : public rclcpp::Node {
+class TurretControllerNode final : public rclcpp::Node {
   rclcpp::Subscription<antidrone_turret::msg::ActuatorStatus>::SharedPtr actuator_status_subscription_;
   rclcpp::Subscription<antidrone_turret::msg::Target>::SharedPtr target_subscription_;
   rclcpp::Publisher<antidrone_turret::msg::TurretStatus>::SharedPtr status_publisher_;
@@ -105,8 +78,8 @@ class TurretControlNode final : public rclcpp::Node {
   std::optional<antidrone_turret::ActuatorState> actuator_state;
 
 public:
-  TurretControlNode()
-    : Node("turret_control_node")
+  TurretControllerNode()
+    : Node("turret_controller_node")
   {
     config_.confidence_threshold = declare_parameter<double>("confidence_threshold", 0.8);
     config_.max_distance_m = declare_parameter<double>("max_distance_m", 30.0);
@@ -139,7 +112,7 @@ private:
     actuator_state = to_message_actuator_state(status_msg);
   }
 
-  void publish_gimbal(antidrone_turret::GimbalCmd& cmd)
+  void publish_gimbal(const antidrone_turret::GimbalCmd& cmd)
   {
     auto msg = antidrone_turret::msg::GimbalCommand{};
     msg.target_y = cmd.target_y;
@@ -148,7 +121,7 @@ private:
     gimbal_cmd_publisher_->publish(msg);
   }
 
-  void publish_servo(antidrone_turret::ServoCmd& cmd)
+  void publish_servo(const antidrone_turret::ServoCmd& cmd)
   {
     auto msg = antidrone_turret::msg::ServoCommand{};
     msg.target_x = cmd.target_x;
@@ -157,7 +130,7 @@ private:
     servo_cmd_publisher_->publish(msg);
   }
 
-  void publish_status(antidrone_turret::TurretDecision& decision)
+  void publish_status(const antidrone_turret::TurretDecision& decision)
   {
     auto msg = antidrone_turret::msg::TurretStatus{};
     msg.target_state = to_message_target_state(decision.target_state);
@@ -165,6 +138,7 @@ private:
     msg.trigger_state = to_message_trigger_state(decision.trigger_decision);
     msg.confidence = decision.confidence;
     msg.distance_m = decision.distance_m;
+    status_publisher_->publish(msg);
   }
 
   /*
@@ -189,13 +163,12 @@ callback  /perception/target :
       publish_gimbal(decision.gimbal);
       publish_servo(decision.servo);
     }
-    using namespace std::chrono_literals;  // Дозволяє використовувати суфікси s, ms, ns
+    using namespace std::chrono_literals;
     if (decision.trigger_decision == antidrone_turret::TriggerDecision::kTriggerRequested) {
       // not to repeat async request if previous is pending
       if (!trigger_request_pending_) {
         /*         if (!actuator_client->wait_for_service(3s)) {
                   RCLCPP_ERROR(get_logger(), "service %s is not available", antidrone_turret::ros_names::kTriggerService);
-                  rclcpp::shutdown();
                   return;  // TODO ??
                 } */
         trigger_request_pending_ = true;
@@ -206,21 +179,37 @@ callback  /perception/target :
 
         actuator_client->async_send_request(request, [this](rclcpp::Client<antidrone_turret::srv::TriggerActuator>::SharedFuture future) {
           const auto response = future.get();
-          RCLCPP_INFO(get_logger(), "accepted=%s trigger_count=%u", response->accepted ? "true" : "false", response->trigger_count);
+          RCLCPP_INFO(get_logger(),
+                      "recieved responce: accepted=%s, trigger_count=%u",
+                      response->accepted ? "true" : "false",
+                      response->trigger_count);
+          // accepted=true: актуатор щойно перейшов у RELOADING.
+          // accepted=false: він уже був у RELOADING.
+          actuator_state = antidrone_turret::ActuatorState::kReloading;
           trigger_request_pending_ = false;
-          rclcpp::shutdown();
         });
       }
     }
 
     publish_status(decision);
+    RCLCPP_INFO(get_logger(),
+                "target=%s,  action=%s, trigger=%s, distance_m=%.1f, confidence=%.2f",
+                decision.target_state == antidrone_turret::TargetState::kTargetLocked          ? "Locked"
+                : decision.target_state == antidrone_turret::TargetState::kTargetLowConfidence ? "Low_confidence"
+                                                                                               : "None",
+                decision.action == antidrone_turret::Action::kActionTrack ? "Track" : "Idle",
+                decision.trigger_decision == antidrone_turret::TriggerDecision::kTriggerRequested ? "Requested"
+                : decision.trigger_decision == antidrone_turret::TriggerDecision::kTriggerSkip    ? "Skip"
+                                                                                                  : "Reloading",
+                decision.distance_m,
+                decision.confidence);
   }
 };
 
 int main(int argc, char** argv)
 {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<TurretControlNode>());
+  rclcpp::spin(std::make_shared<TurretControllerNode>());
   rclcpp::shutdown();
   return 0;
 }

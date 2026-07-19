@@ -1,0 +1,209 @@
+# HW13 — Antidrone Turret ROS 2 Pipeline
+
+## Summary
+
+Implemented the ROS 2 control pipeline for the `antidrone_turret` package.
+
+The solution adds:
+
+- custom `GimbalCommand`, `ServoCommand`, and `TurretStatus` message types;
+- `turret_controller_node` for target evaluation, turret guidance, and trigger decisions;
+- `gimbal_driver_node` and `yaw_servo_driver_node`;
+- integration with the `/actuator/trigger` service and `/actuator/status` topic;
+- YAML-configurable confidence and distance thresholds;
+- launch integration for all system nodes;
+- ROS-independent C++ controller logic;
+- unit tests for target evaluation, guidance commands, trigger decisions, and turret status.
+
+The controller publishes guidance commands only for visible, sufficiently confident targets. A trigger request is sent only when the target is within the configured range and the actuator is `READY`. Repeated requests are suppressed while the actuator is `RELOADING`.
+
+## System overview
+
+```mermaid
+flowchart LR
+    Track[target_track_publisher_node]
+    Controller[turret_controller_node]
+    Gimbal[gimbal_driver_node]
+    Servo[yaw_servo_driver_node]
+    Actuator[actuator_node]
+
+    Track -- /perception/target --> Controller
+
+    Controller -- /gimbal/cmd --> Gimbal
+    Controller -- /servo/cmd --> Servo
+    Controller -- /turret/status --> Status[/turret/status/]
+
+    Controller -- /actuator/trigger --> Actuator
+    Actuator -- /actuator/status --> Controller
+    Actuator -- /actuator/status --> Track
+```
+
+## Nodes
+
+| Node | Responsibility |
+|---|---|
+| `target_track_publisher_node` | Loads target samples from CSV tracks and publishes `/perception/target` |
+| `turret_controller_node` | Evaluates targets, publishes guidance and status, and requests actuator triggering |
+| `gimbal_driver_node` | Receives vertical guidance commands from `/gimbal/cmd` |
+| `yaw_servo_driver_node` | Receives horizontal guidance commands from `/servo/cmd` |
+| `actuator_node` | Provides `/actuator/trigger` and publishes `READY` or `RELOADING` state |
+
+## ROS interfaces
+
+### Topics
+
+| Topic | Type |
+|---|---|
+| `/perception/target` | `antidrone_turret/msg/Target` |
+| `/turret/status` | `antidrone_turret/msg/TurretStatus` |
+| `/gimbal/cmd` | `antidrone_turret/msg/GimbalCommand` |
+| `/servo/cmd` | `antidrone_turret/msg/ServoCommand` |
+| `/actuator/status` | `antidrone_turret/msg/ActuatorStatus` |
+
+### Service
+
+| Service | Type |
+|---|---|
+| `/actuator/trigger` | `antidrone_turret/srv/TriggerActuator` |
+
+## Controller logic
+
+The ROS wrapper converts incoming messages into ROS-independent C++ data types and calls the controller logic.
+
+For each target sample, the controller:
+
+1. classifies the target as `TARGET_NONE`, `TARGET_LOW_CONFIDENCE`, or `TARGET_LOCKED`;
+2. calculates horizontal and vertical guidance commands;
+3. decides whether to skip, request, or defer triggering;
+4. creates the corresponding `TurretStatus`.
+
+Default controller parameters:
+
+```yaml
+turret_controller_node:
+  ros__parameters:
+    confidence_threshold: 0.8
+    max_distance_m: 30.0
+```
+
+A target is tracked only when it is visible and its confidence is at least `confidence_threshold`.
+
+A trigger is requested only when:
+
+- the target is locked;
+- `distance_m <= max_distance_m`;
+- the actuator state is `READY`.
+
+## Build
+
+Run the following commands from `homework_13/robot_ws`:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+
+colcon build \
+  --symlink-install \
+  --packages-select antidrone_turret
+
+source install/setup.bash
+```
+
+The workspace overlay must be sourced in every new terminal:
+
+```bash
+source install/setup.bash
+```
+
+## Tests
+
+```bash
+colcon test --packages-select antidrone_turret
+colcon test-result --verbose
+```
+
+The tests cover:
+
+- CSV track loading and provided simulation logic;
+- target visibility and confidence evaluation;
+- yaw-servo direction and horizontal error;
+- gimbal direction and vertical error;
+- trigger decisions for `READY` and `RELOADING`;
+- combined turret status generation.
+
+## Run
+
+Run all provided tracks sequentially:
+
+```bash
+ros2 launch antidrone_turret system.launch.py
+```
+
+Run a specific scenario:
+
+```bash
+ros2 launch antidrone_turret system.launch.py \
+  track:=approach_trigger.csv
+```
+
+Available tracks:
+
+```text
+approach_trigger.csv
+far_flyby_no_trigger.csv
+low_confidence_no_trigger.csv
+reload_pressure.csv
+```
+
+Enable debug logging:
+
+```bash
+ros2 launch antidrone_turret system.launch.py \
+  track:=reload_pressure.csv \
+  log_level:=debug
+```
+
+Controller thresholds can also be overridden at launch:
+
+```bash
+ros2 launch antidrone_turret system.launch.py \
+  confidence_threshold:=0.85 \
+  max_distance_m:=25.0
+```
+
+## Runtime verification
+
+In another terminal, source the workspace overlay:
+
+```bash
+source install/setup.bash
+```
+
+Inspect the ROS graph:
+
+```bash
+ros2 node list
+ros2 topic list
+ros2 service list
+ros2 param list
+```
+
+Inspect system output:
+
+```bash
+ros2 topic echo /perception/target --once
+ros2 topic echo /turret/status --once
+ros2 topic echo /gimbal/cmd --once
+ros2 topic echo /servo/cmd --once
+ros2 topic echo /actuator/status --once
+```
+
+Expected scenario behavior:
+
+| Track | Expected result |
+|---|---|
+| `approach_trigger.csv` | Target is tracked and one trigger request is sent in range |
+| `far_flyby_no_trigger.csv` | Target is tracked, but triggering is skipped because it remains too far away |
+| `low_confidence_no_trigger.csv` | Guidance and triggering remain idle because confidence is below the threshold |
+| `reload_pressure.csv` | The first valid target may trigger; repeated requests are suppressed while the actuator is reloading |
+
+

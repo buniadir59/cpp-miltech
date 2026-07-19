@@ -54,8 +54,8 @@ def generate_launch_description():
         ),
         Node(
             package="antidrone_turret",
-            executable="turret_control_node",
-            parameters=[config, {"confidence_threshold":confidence_threshold, "max_distance_m":max_distance_m}],
+            executable="turret_controller_node",
+            parameters=[config],
             arguments=["--ros-args", "--log-level", log_level],
         ),
     ])
