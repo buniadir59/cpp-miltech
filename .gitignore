@@ -2,6 +2,8 @@
 build/
 build-*/
 out/
+log/
+install/
 
 # CMake генерує ці файли при in-source або ручних локальних збірках.
 CMakeCache.txt
@@ -12,7 +14,10 @@ cmake_install.cmake
 compile_commands.json
 install_manifest.txt
 _deps/
-.cache/
+
+# Python bytecode з'являється після перевірки launch-файлів і не потрібен у repo.
+__pycache__/
+*.py[cod]
 
 # Мінімальний набір compiled/debug артефактів для C++ прикладів.
 *.d
@@ -29,20 +34,6 @@ _deps/
 core
 core.*
 
-!homework_08/include/core/
-!homework_08/include/core/**
-!homework_08/src/core/
-!homework_08/src/core/**
-!homework_09/include/core/
-!homework_09/src/core/
-
 # Метадані операційної системи не є частиною навчального репозиторію.
 .DS_Store
 Thumbs.db
-
-# Runtime output files produced by homework CLI programs.
-output.txt 
-simulation.json
-
-# Local clangd cache
-.cache/
