@@ -5,10 +5,8 @@ payload_action_node
 повертає accepted=true. 
 */
 
-
-#include <memory>
-
 #include <rclcpp/rclcpp.hpp>
+#include <memory>
 #include <string>
 
 #include "underground_world/msg/enemy_down.hpp"
