@@ -71,9 +71,28 @@ robot_ws/src/
         ├── mission_explorer_node.cpp
         └── payload_action_node.cpp
 
+## Bild
+
+colcon build --symlink-install
+source install/setup.bash
+
 ## Запуск
 
+1) перший термінал - запустити запис в rosbag:
+ros2 bag record -a -o ../bags/small_rooms
+
+де -a означає all topics.
+
+2) Другий термінал:
 ros2 launch underground_world system.launch.py \
   scenario:=small_rooms.yaml
+  
+## Перевірка
 
-## 
+
+ros2 bag info ../bags/small_rooms
+
+## Відтворення
+
+ros2 bag play ../bags/small_rooms
+
