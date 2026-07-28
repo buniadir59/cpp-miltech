@@ -95,3 +95,9 @@ ros2 bag info ../bags/small_rooms
 
 ros2 bag play ../bags/small_rooms
 
+# Щоб listener можна було запустити першим, задайте тип явно:
+
+ros2 topic echo \
+  /robot/result \
+  underground_world/msg/RobotResult
+

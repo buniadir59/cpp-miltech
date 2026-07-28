@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <string>
 
+#include "underground_world/state_qos.hpp"
 #include <underground_world/scenario.hpp>
 #include "mission_explorer/explorer_core.hpp"
 #include "underground_world/msg/cell_observation.hpp"
@@ -169,14 +170,15 @@ public:
     : Node("mission_explorer_node")
   {
     const auto qos = rclcpp::QoS{10};
+    const auto state_qos = underground_world::make_state_qos();
     move_publisher_ = create_publisher<MoveCommand>(kCommandMoveTopic, qos);
     status_publisher_ = create_publisher<StudentStatus>(kStudentStatusTopic, qos);
 
     local_scan_subscriber_ =
-      create_subscription<LocalScan>(kLocalScanTopic, qos, [this](const LocalScan::SharedPtr msg) { on_local_scan_msg(*msg); });
+      create_subscription<LocalScan>(kLocalScanTopic, state_qos, [this](const LocalScan::SharedPtr msg) { on_local_scan_msg(*msg); });
 
-    robot_result_subscriber_ =
-      create_subscription<RobotResult>(kRobotResultTopic, qos, [this](const RobotResult::SharedPtr msg) { on_robot_result_msg(*msg); });
+    robot_result_subscriber_ = create_subscription<RobotResult>(
+      kRobotResultTopic, state_qos, [this](const RobotResult::SharedPtr msg) { on_robot_result_msg(*msg); });
 
     payload_trigger_client_ = create_client<PayloadTrigger>(kPayloadTriggerService);
   }
@@ -237,9 +239,12 @@ private:
   {
     ScanObservation scan = convert_scan(msg);
     log_scan(msg);
-    
+
     if (mission_finished_) {
       expl_core_.update_map(scan);
+#ifdef PUBLISH_MAP
+      RCLCPP_INFO(get_logger(), "Known map:\n%s", expl_core_.map_to_string().c_str());
+#endif
       return;
     }
 
