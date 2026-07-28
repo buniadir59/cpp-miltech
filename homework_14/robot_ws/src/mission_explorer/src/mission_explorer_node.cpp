@@ -1,8 +1,10 @@
 #include <format>
+#include "rclcpp/rclcpp.hpp"
 #include <rclcpp/exceptions/exceptions.hpp>
 #include <rclcpp/qos.hpp>
 #include <stdexcept>
 #include <string>
+
 #include <underground_world/scenario.hpp>
 #include "mission_explorer/explorer_core.hpp"
 #include "underground_world/msg/cell_observation.hpp"
@@ -11,8 +13,6 @@
 #include "underground_world/msg/robot_result.hpp"
 #include "underground_world/msg/student_status.hpp"
 #include "underground_world/srv/payload_trigger.hpp"
-
-#include "rclcpp/rclcpp.hpp"
 
 using LocalScan = underground_world::msg::LocalScan;
 using MoveCommand = underground_world::msg::MoveCommand;
@@ -38,6 +38,7 @@ using PayloadTrigger = underground_world::srv::PayloadTrigger;
 using LocalScan = underground_world::msg::LocalScan;
 using RobotResult = underground_world::msg::RobotResult;
 using CellObservation = underground_world::msg::CellObservation;
+using CellKind = underground_world::CellKind;
 
 using Direction = mission_explorer::Direction;
 using State = mission_explorer::State;
@@ -48,13 +49,6 @@ constexpr auto kPayloadTriggerService = "/payload/trigger";
 constexpr auto kCommandMoveTopic = "/robot/cmd_move";
 constexpr auto kStudentStatusTopic = "/student/status";
 constexpr auto kRobotResultTopic = "/robot/result";
-
-std::string cell_observation_to_str(const CellObservation& cell)
-{
-  std::string res =  //
-    std::format("\n({}, {}) {} {}, ", cell.x, cell.y, cell.cell_type, cell.cell_type == "C" ? std::to_string(cell.contact_id) : "");
-  return res;
-}
 
 CellKind str_to_cellkind(const std::string& cell_type)
 {
@@ -80,7 +74,7 @@ auto convert_scan(const LocalScan& msg) -> ScanObservation
 {
   ScanObservation scan_obs{};
   scan_obs.robot_position = {msg.robot_x, msg.robot_y};
-  scan_obs.cells.reserve(scan_obs.cells.size());
+  scan_obs.cells.reserve(msg.cells.size());
   for (const auto& cell : msg.cells) {
     mission_explorer::ObservedCell cell_obs = {{cell.x, cell.y}, str_to_cellkind(cell.cell_type), cell.contact_id};
     scan_obs.cells.push_back(cell_obs);
@@ -119,6 +113,38 @@ auto to_message_state(State state)
   }
   throw std::invalid_argument{"Invalid state in decision: " + std::to_string(static_cast<int>(state))};
 }
+
+auto to_string_direction(Direction direction)
+{
+  switch (direction) {
+    case Direction::Up:
+      return "UP";
+    case Direction::Down:
+      return "DOWN";
+    case Direction::Left:
+      return "LEFT";
+    case Direction::Right:
+      return "RIGHT";
+  }
+  return "???";
+}
+
+auto to_string_state(State state)
+{
+  switch (state) {
+    case State::Exploring:
+      return "EXPLORING";
+    case State::Returning:
+      return "RETURNING";
+    case State::Engaging:
+      return "ENGAGING";
+    case State::Done:
+      return "DONE";
+    case State::Failed:
+      return "FAILED";
+  }
+  return "??";
+}
 }  // namespace
 
 /* Після запуску underground_world_node один раз публікує стартові
@@ -134,14 +160,15 @@ class MissionExplorerNode final : public rclcpp::Node {
   rclcpp::Subscription<LocalScan>::SharedPtr local_scan_subscriber_;
   rclcpp::Subscription<RobotResult>::SharedPtr robot_result_subscriber_;
 
-  bool scenario_name_published = false;
+  bool scenario_name_published_ = false;
+  bool mission_finished_ = false;
   mission_explorer::ExplorerCore expl_core_{};
 
 public:
   MissionExplorerNode()
     : Node("mission_explorer_node")
   {
-    const auto qos = rclcpp::QoS{10};  //.durability(RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL);
+    const auto qos = rclcpp::QoS{10};
     move_publisher_ = create_publisher<MoveCommand>(kCommandMoveTopic, qos);
     status_publisher_ = create_publisher<StudentStatus>(kStudentStatusTopic, qos);
 
@@ -157,7 +184,8 @@ public:
 private:
   void on_robot_result_msg(const RobotResult& msg)
   {
-    if (!scenario_name_published) {
+    if (!scenario_name_published_) {
+      scenario_name_published_ = true;
       RCLCPP_INFO(get_logger(), "Started scenario: %s", msg.scenario_name.c_str());
     }
 
@@ -167,6 +195,11 @@ private:
                 msg.steps_taken,
                 msg.max_steps,
                 msg.reason.c_str());
+
+    if (msg.mission_result == "SUCCESS") {
+      mission_finished_ = true;
+      publish_status(State::Done);
+    }
   }
 
   void publish_status(State state)
@@ -174,13 +207,15 @@ private:
     auto msg = StudentStatus{};
     msg.state = to_message_state(state);
     status_publisher_->publish(msg);
+    RCLCPP_INFO(get_logger(), "State: %s", to_string_state(state));
   }
-  
+
   void publish_move(Direction direction)
   {
     auto msg = MoveCommand{};
     msg.direction = to_message_direction(direction);
     move_publisher_->publish(msg);
+    RCLCPP_INFO(get_logger(), "Move: %s", to_string_direction(direction));
   }
 
   void log_scan(const LocalScan& msg)
@@ -201,13 +236,15 @@ private:
   void on_local_scan_msg(const LocalScan& msg)
   {
     ScanObservation scan = convert_scan(msg);
-    if (msg.cells.size() < 9) {
-      throw std::invalid_argument{"Invalid cells array size: " + std::to_string(msg.cells.size())};
-    }
     log_scan(msg);
+    
+    if (mission_finished_) {
+      expl_core_.update_map(scan);
+      return;
+    }
 
     mission_explorer::ExplorerDecision decision = expl_core_.processScan(scan);
-    if (decision.state == State::Engaging ) {
+    if (decision.state == State::Engaging) {
       if (!decision.contact.has_value()) {
         throw std::invalid_argument{"Engaging decision doesnt have contact"};
       }
@@ -219,18 +256,17 @@ private:
       payload_trigger_client_->async_send_request(request, [this](rclcpp::Client<PayloadTrigger>::SharedFuture future) {
         const auto response = future.get();
         RCLCPP_INFO(
-          get_logger(), "recieved responce: accepted=%s, reason=%s", response->accepted ? "true" : "false", response->reason.c_str());
+          get_logger(), "recieved response: accepted=%s, reason=%s", response->accepted ? "true" : "false", response->reason.c_str());
       });
     }
     else if (decision.state == State::Exploring || decision.state == State::Returning) {
       publish_move(decision.direction);
     }
-    
+
     publish_status(decision.state);
-    
+
 #ifdef PUBLISH_MAP
-    RCLCPP_INFO(
-          get_logger(), "Known map:\n %s", expl_core_.map_to_string().c_str());
+    RCLCPP_INFO(get_logger(), "Known map:\n%s", expl_core_.map_to_string().c_str());
 #endif
   }
 };

@@ -61,10 +61,9 @@ robot_ws/src/
 │
 └── mission_explorer/
     ├── package.xml                # depend: underground_world
-    ├── CMakeLists.txt             # find_package(underground_world)
+    ├── CMakeLists.txt             # залежності автоматично знаходяться через ament_cmake_auto
     ├── include/
     │   └── mission_explorer/
-    │       ├── grid_types.hpp
     │       └── explorer_core.hpp
     └── src/
         ├── explorer_core.cpp

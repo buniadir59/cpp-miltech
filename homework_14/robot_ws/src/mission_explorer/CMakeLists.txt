@@ -21,7 +21,6 @@ target_link_libraries(mission_explorer_node mission_explorer_core)
 
 ament_auto_add_executable(payload_action_node src/payload_action_node.cpp)
 
-target_link_libraries(mission_explorer_node "${cpp_typesupport_target}")
 
 #if(BUILD_TESTING)
 #  find_package(ament_cmake_gtest REQUIRED)

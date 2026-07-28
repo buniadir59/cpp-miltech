@@ -1,33 +1,17 @@
 #include "mission_explorer/explorer_core.hpp"
 
 #include <optional>
-// #include <stdexcept>
-// #include <string>
+#include <format>
+#include <stdexcept>
 #include <underground_world/scenario.hpp>
 
-/* mission_explorer_core містить алгоритм:
-
+/* mission_explorer_core містить алгоритм DFS із поверненням по батьківських клітинках
 карту;
-DFS;
 visited;
-parent;
-вибір наступного кроку;
-внутрішні Position, Cell, Decision.
-
-Алгоритм
-
-Найнадійніший варіант тут — звичайний DFS із поверненням по батьківських клітинках.
-
-Після кожного scan:
-
-Оновити локальну карту.
-Якщо видно C — обробити один контакт і не рухатися.
-Інакше знайти сусідню відому прохідну клітинку, яку робот ще не відвідував.
-Перейти туди й запам’ятати поточну клітинку як її parent.
-Якщо невідвіданих сусідів немає — повернутися в parent.
-Якщо parent немає і нових клітинок немає — дослідження завершене.
-
+path;
+вибір дії
  */
+
 namespace mission_explorer {
 
 void ExplorerCore::update_map(const ScanObservation& scan)
@@ -37,44 +21,74 @@ void ExplorerCore::update_map(const ScanObservation& scan)
   }
 }
 
-[[nodiscard]] auto ExplorerCore::find_unvisited_neighbor(const ScanObservation& scan) const -> std::optional<Point>
+[[nodiscard]] auto ExplorerCore::find_unvisited_neighbor(const Point& robot_position) const -> std::optional<Point>
 {
-  for (const auto& cell : scan.cells) {
-    if (is_passable(cell.kind) && !visited_.contains(cell.position)) {
-      return cell.position;
+  const auto try_neighbor = [this](const Point& next) -> std::optional<Point> {
+    const auto it = known_map_.find(next);
+
+    if (it != known_map_.end() && is_passable(it->second) && !visited_.contains(next)) {
+      return next;
     }
-  }
+
+    return std::nullopt;
+  };
+
+  std::optional<Point> unvisited{};
+  unvisited = try_neighbor({robot_position.x - 1, robot_position.y});  // left
+  if (unvisited.has_value())
+    return unvisited;
+
+  unvisited = try_neighbor({robot_position.x, robot_position.y - 1});  // down
+  if (unvisited.has_value())
+    return unvisited;
+
+  unvisited = try_neighbor({robot_position.x, robot_position.y + 1});  // down
+  if (unvisited.has_value())
+    return unvisited;
+
+  unvisited = try_neighbor({robot_position.x + 1, robot_position.y});  // right
+  if (unvisited.has_value())
+    return unvisited;
+
   return std::nullopt;
 }
 
-/* Оновити known_map_.
-Позначити позицію робота як відвідану.
-Якщо очікується підтвердження контакту — повернути Wait.
-Якщо видно C — повернути Trigger.
-Якщо є невідвіданий прохідний сусід — додати його в dfs_path_ і повернути Move.
-Інакше повернутися до попередньої позиції у dfs_path_.
-Якщо повертатися вже нікуди — повернути Done. */
 [[nodiscard]] auto ExplorerCore::processScan(const ScanObservation& scan) -> ExplorerDecision
 {
+  if (!initialized_) {  // first scan
+    dfs_path_.push_back(scan.robot_position);
+    initialized_ = true;
+  }
+
   ExplorerDecision decision{};
   decision.contact = find_visible_contact(scan);
 
   if (decision.contact.has_value()) {
-    decision.state = State::Engaging;  // TODO is it really possible to fire 2 times?
+    decision.state = State::Engaging; 
     return decision;
+  }
+
+  if (!dfs_path_.empty() && (decision.state == State::Exploring || decision.state == State::Returning)) {
+    Point expected = dfs_path_.back();
+    if (scan.robot_position != expected) {
+      throw std::runtime_error{std::format(
+        "Robot position ({}, {}) differs from expected ({}, {})", scan.robot_position.x, scan.robot_position.y, expected.x, expected.y)};
+    }
   }
 
   update_map(scan);
   visited_.insert(scan.robot_position);
-  std::optional<Point> next = find_unvisited_neighbor(scan);
+  std::optional<Point> next = find_unvisited_neighbor(scan.robot_position);
   if (next.has_value()) {
     dfs_path_.push_back(next.value());
+
     decision.state = State::Exploring;
     decision.direction = get_direction(scan.robot_position, next.value());
     return decision;
   }
 
   dfs_path_.pop_back();
+
   if (!dfs_path_.empty()) {
     Point previous = dfs_path_.back();
     decision.direction = get_direction(scan.robot_position, previous);

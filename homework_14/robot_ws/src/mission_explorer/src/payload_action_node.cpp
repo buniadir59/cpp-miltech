@@ -38,6 +38,17 @@ public:
   }
 
 private:
+
+  auto publish_enemy_down(const underground_world::Contact& contact) const
+  {
+    auto msg = EnemyDown{};
+    msg.contact_id = contact.id;
+    msg.x = contact.position.x;
+    msg.y = contact.position.y;
+
+    enemy_down_publisher_->publish(msg);
+  }
+
   void on_trigger(const std::shared_ptr<PayloadTrigger::Request>& request, const std::shared_ptr<PayloadTrigger::Response>& response)
   {
     underground_world::Contact contact{request->contact_id, {request->x, request->y}};
@@ -50,15 +61,6 @@ private:
     publish_enemy_down(contact);
   }
 
-  void publish_enemy_down(const underground_world::Contact contact)
-  {
-    auto msg = EnemyDown{};
-    msg.contact_id = contact.id;
-    msg.x = contact.position.x;
-    msg.y = contact.position.y;
-
-    enemy_down_publisher_->publish(msg);
-  }
 
   rclcpp::Publisher<EnemyDown>::SharedPtr enemy_down_publisher_;
   rclcpp::Service<PayloadTrigger>::SharedPtr payload_trigger_service_;
