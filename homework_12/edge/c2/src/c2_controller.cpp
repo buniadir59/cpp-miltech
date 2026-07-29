@@ -4,12 +4,24 @@
 
 #include <nlohmann/json.hpp>  // Розбiр JSON з точками маршруту вiд auto_stub
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <string>
 #include <sstream>
 #include <cstddef>
+#include <system_error>
+
+/*
+yevhenkuznetsov: Non-blocking:
+healthcheck перевіряє лише наявність файла /tmp/c2_healthy. Після docker compose restart c2_service
+цей файл залишається всередині контейнера.
+Це відтворюється так: після першого HEARTBEAT зупинити fc_sim і перезапустити c2_service. Через 7
+секунд Docker знову показує healthy, хоча нового HEARTBEAT від FC не було.
+На старті процесу варто видаляти старий marker, а потім створювати його лише після нового з’єднання:
+std::filesystem::remove("/tmp/c2_healthy");
+Поточну логіку створення файла після fc.is_connected() можна залишити.*/
 
 /*
 read FC state
@@ -26,6 +38,8 @@ apply safety policy - forward or block
 
 namespace {
 
+constexpr auto kHealthMarker = "/tmp/c2_healthy";
+
 constexpr std::size_t kUdpMaxSize = 1500;  // розмір буфера для читання пакета
 
 struct Waypoint {
@@ -34,7 +48,7 @@ struct Waypoint {
   bool has_data = false;
 };
 
-Waypoint parseWaypointPacket(const std::array<char,kUdpMaxSize>& buffer, std::size_t count)
+Waypoint parseWaypointPacket(const std::array<char, kUdpMaxSize>& buffer, std::size_t count)
 {
   Waypoint result{};
 
@@ -74,8 +88,8 @@ std::string stateToString(C2State state)
 static constexpr uint16_t STUB_PORT = 14560;
 
 struct C2Controller::Impl {
-  FcLink fc;           // блокується до вiдповiдi автопiлота (30 s)
-  std::ofstream flog; 
+  FcLink fc;  // блокується до вiдповiдi автопiлота (30 s)
+  std::ofstream flog;
   C2State state = C2State::DISARMED;
   UdpSocket udp_stub;
   bool health_signalled = false;
@@ -88,6 +102,13 @@ struct C2Controller::Impl {
     , flog("/var/log/c2/c2.log")
     , udp_stub(STUB_PORT)  // UdpSocket має слухати STUB_PORT.
   {
+    std::error_code error;
+    std::filesystem::remove(std::filesystem::path{kHealthMarker}, error);
+
+    if (error) {
+      std::cerr << "[C2] warning: cannot remove health marker: " << error.message() << '\n';
+    }
+
     if (!flog.is_open()) {
       throw std::runtime_error("[C2] error: cannot open /var/log/c2/c2.log\n");
     }
@@ -96,7 +117,7 @@ struct C2Controller::Impl {
   void update_connection_health()
   {
     if (!health_signalled && fc.is_connected()) {  // <= got first HEARTBEAT from fc
-      std::ofstream("/tmp/c2_healthy").close();
+      std::ofstream(kHealthMarker).close();
       health_signalled = true;
     }
   }
