@@ -4,8 +4,8 @@
 #include "math/point_math.hpp"
 #include "math/angle_math.hpp"
 
-#define DBG_MODE
-#ifdef DBG_MODE                // #endif
+// #define DBG_MODE
+#ifdef DBG_MODE
 #include "config/defines.hpp"  //for DEBUG
 #endif
 
@@ -31,8 +31,10 @@ auto MissionCtx::_checkFireCondition() -> bool
   hit_dist = pointmath::getLength(instantAimPoint - tlp);
   if (hit_dist <= kAccuracy_m) {  // Fire
     firePoint = {telemetry.x, telemetry.y};
+    tgtLeadPos = tlp;  // важливо для JSON на ATTACK-кроці
     currTgt->state = core::ATTACKED;
     currTgt->hitCoord = instantAimPoint;
+
     auto tnow = TimeTracker::getInstance().getElapsed();
     currTgt->hitTime = tnow + instantAmmoFFTime;
     LOG(tnow << "  T#" << currentTgtTag << " Fired=>" << currTgt->hitTime << " hitXY: " << currTgt->hitCoord.x << ' ' << currTgt->hitCoord.y
@@ -68,7 +70,7 @@ auto MissionCtx::calcAttackRoute() -> int
 
     firePoint = tgtLeadPos - pointmath::cossin(angle_to_tgt) * ammoBaseHDist;  // just to report
     if (dist_to_tgt < ammoBaseHDist + distToGainAttSpeed) {                    // we aren't able to gain att speed
-    // TODO to improve ->check if we are able to decelerate and turn
+      // TODO to improve ->check if we are able to decelerate and turn
       res_code = 1;
 #ifdef DBG_MODE  // #endif
       DEBUG(TimeTracker::getInstance().getElapsed()
@@ -78,7 +80,7 @@ auto MissionCtx::calcAttackRoute() -> int
 #endif
       break;
     }
-    
+
     //  get dist to FP and angle to turn on the way
     dist2fp = dist_to_tgt - ammoBaseHDist;
     time2fp = timeToGainAttSpeed + (dist2fp - distToGainAttSpeed) / mconf.attackSpeed;  // acc + cruize time, turn not accounted
@@ -216,7 +218,14 @@ std::unique_ptr<IMissionState> Idle::execute(MissionCtx& ctx)
   while ((tag = ctx.getNextTarget()) >= 0) {
     // try to start new mission
     ctx.setCurrentTgtTag(tag);
-    if (!ctx.calcAttackRoute()) {  // ok, we are attacking next target
+
+    const int res = ctx.calcAttackRoute();
+
+    if (res == -1) {  // fired
+      return std::make_unique<mission::Idle>();
+    }
+
+    if (res == 0) {  // ok, we are attacking next target
       return std::make_unique<mission::Attack>();
     }
   }
@@ -233,7 +242,11 @@ std::unique_ptr<IMissionState> Attack::execute(MissionCtx& ctx)
   // re-calculate route to FP ()
   int res = ctx.calcAttackRoute();
 
-  if (!res) {  // continue to FP
+  if (res == -1) {  // fired //fix lost index of attacked target
+    return std::make_unique<mission::Idle>();
+  }
+
+  if (!res) {  
     return nullptr;
   }
 

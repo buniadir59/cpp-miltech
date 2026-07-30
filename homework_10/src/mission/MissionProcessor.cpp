@@ -6,8 +6,8 @@
 #include "interfaces/IBallisticSolver.hpp"
 #include "math/point_math.hpp"
 
-#define DBG_MODE
-#ifdef DBG_MODE                // #endif
+// #define DBG_MODE
+#ifdef DBG_MODE
 #include "config/defines.hpp"  //for DEBUG
 #endif
 
@@ -212,9 +212,9 @@ position, direction, state, targetIndex, dropPoint, aimPoint, predictedTarget.
  */
 auto MissionProcessor::pushStepToJSON() -> void
 {
-  pointmath::Point aimPoint = mctx.instantAimPoint;  // mission.getAmmoHDist());
+  pointmath::Point aimPoint = mctx.instantAimPoint;
   json step;
-  step["timeSecSinceStart"] = mctx.telemetry.timeSecSinceStart;  // крок х-дрона у-дрона кут-дрона стан-дрона ціль№
+  step["timeSecSinceStart"] = mctx.telemetry.timeSecSinceStart;
   step["position"] = {{"x", mctx.telemetry.x}, {"y", mctx.telemetry.y}};
   step["direction"] = mctx.telemetry.dir;
   step["state"] = stateToStr(mctx.telemetry.state, mctx.fired);
@@ -233,7 +233,6 @@ auto MissionProcessor::pushStepToJSON() -> void
   }
   j_out["steps"].push_back(step);
 
-// DEBU G("Time TTime T# X: Y: FpX FpY D2FP T2FP DrDir A2T AimX AimY TlpX TlpY HiDist cmd.As cmd.St res DrSt MiSt");
 #ifdef DBG_MODE
   DEBUG(TimeTracker::getInstance().getElapsed()  // full step report
         << " " << mctx.telemetry.timeSecSinceStart << " " << mctx.currentTgtTag << " " << mctx.telemetry.x << " " << mctx.telemetry.y << " "

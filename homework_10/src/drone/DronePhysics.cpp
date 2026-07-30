@@ -4,8 +4,8 @@
 #include "math/point_math.hpp"
 #include "math/angle_math.hpp"
 
-//#define DBG_MODE
-#ifdef DBG_MODE                // #endif
+// #define DBG_MODE
+#ifdef DBG_MODE
 #include "config/defines.hpp"  //for DEBUG
 #endif
 
@@ -29,36 +29,44 @@ Telemetry snapshot під mutex */
 void DronePhysics::run() noexcept
 {
   try {
-  threadReady.store(true);
-  while (!threadStart.load() && !threadStopRequested.load()) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    threadReady.store(true);
+    while (!threadStart.load() && !threadStopRequested.load()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
+    TimeTracker& tt = TimeTracker::getInstance();
+
+    while (!threadStopRequested.load()) {
+      // read and apply command if any
+      applyPendingCommands();
+
+      // execute state
+      if (auto nextState = state->execute(ctx); nextState != nullptr) {
+        state = std::move(nextState);
+      }
+      // update telemetry snapshot
+      {
+        /*    
+             ctx.tel.timeSecSinceStart = tt.getElapsed();
+                std::lock_guard<std::mutex> lock(telMutex);
+                telSnapshot = ctx.tel; */ //Fix time mismatch 
+        modelTimeSec += ctx.mconf.physicsTimeStep;
+        ctx.tel.timeSecSinceStart = static_cast<float>(modelTimeSec);
+
+        std::lock_guard<std::mutex> lock(telMutex);
+        telSnapshot = ctx.tel;
+      }
+
+      auto wakeup = tt.nextWakeup(ctx.mconf.physicsTimeStep);
+      std::this_thread::sleep_until(wakeup);
+    }
   }
-
-  
-  TimeTracker& tt = TimeTracker::getInstance();
-
-  while (!threadStopRequested.load()) {
-    // read and apply command if any
-    applyPendingCommands();
-
-    // execute state
-    if (auto nextState = state->execute(ctx); nextState != nullptr) {
-      state = std::move(nextState);
-    }
-    // update telemetry snapshot
-    {
-      ctx.tel.timeSecSinceStart = tt.getElapsed();
-      std::lock_guard<std::mutex> lock(telMutex);
-      telSnapshot = ctx.tel;
-    }
-
-    auto wakeup = tt.nextWakeup(ctx.mconf.physicsTimeStep);
-    std::this_thread::sleep_until(wakeup);
-  } } catch (const std::exception& error) {
+  catch (const std::exception& error) {
     std::cerr << "DronePhysics thread error: " << error.what() << '\n';
     failed.store(true);
     threadStopRequested.store(true);
-  } catch (...) {
+  }
+  catch (...) {
     std::cerr << "DronePhysics thread unknown error\n";
     failed.store(true);
     threadStopRequested.store(true);
@@ -103,7 +111,7 @@ void DronePhysics::transitionTo(dto::DroneState new_state, float angle_speed)
   }
 
   switch (new_state) {
-    case dto::STOPPED:                    // new state => stopped
+    case dto::STOPPED:               // new state => stopped
       ctx.cmdAngSpeedRadPerS = 0.0;  // impose 0.0, state prevail
       if (ctx.plannedState == dto::TURNING) {
         state = std::make_unique<Stopped>();
@@ -145,10 +153,10 @@ void DronePhysics::transitionTo(dto::DroneState new_state, float angle_speed)
       // turning or decelerating => no need to change
       break;
   }
-  #ifdef DBG_MODE                //
-  DEBUG("DBG_MODE_new_state_"<<new_state //cmddebug
-    << "__ctx.plannedState_" <<ctx.plannedState);
-  #endif
+#ifdef DBG_MODE
+  DEBUG("DBG_MODE_new_state_" << new_state  // cmddebug
+                              << "__ctx.plannedState_" << ctx.plannedState);
+#endif
 }
 
 // #####################################################################
@@ -156,7 +164,7 @@ void DronePhysics::transitionTo(dto::DroneState new_state, float angle_speed)
 // accelerate, it v= max, return moving
 auto DroneContext::execAccelerating() -> std::unique_ptr<IDroneState>
 {
-  updateDir();                  //@exec accel
+  updateDir();                       //@exec accel
   tel.state = dto::ACCELERATING;     // currently executed
   plannedState = dto::ACCELERATING;  // next planned
   std::unique_ptr<IDroneState> nextState = nullptr;
@@ -180,7 +188,7 @@ auto DroneContext::execAccelerating() -> std::unique_ptr<IDroneState>
 // decelerate, it v= 0, return stopped or turning depending on ang speed value
 auto DroneContext::execDecelerating() -> std::unique_ptr<IDroneState>
 {
-  updateDir();                  //@exec decel
+  updateDir();                       //@exec decel
   tel.state = dto::DECELERATING;     // currently executed
   plannedState = dto::DECELERATING;  // next planned
   std::unique_ptr<IDroneState> nextState = nullptr;

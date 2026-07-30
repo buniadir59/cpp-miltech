@@ -34,6 +34,6 @@ inline constexpr auto kAmmoTable_Path = "homework_10/data/ammo.json";
 inline constexpr auto kTargets_Path = "homework_10/data/targets.json";
 
 // ## max number of simulation steps if any target not hit
-inline constexpr int kMaxSteps = 10000; //TO DO 10000;
+inline constexpr int kMaxSteps = 10000; 
 
 }  // namespace defines

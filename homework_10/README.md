@@ -114,5 +114,44 @@ homework_10/
 
    - for point_math: implement near(accuracy) instead of operator==
 
-   
- 
+## Build та запуск в контейнері
+приклад:
+
+osha@devcontainer:~/cpp-miltech$ cmake --preset debug
+osha@devcontainer:~/cpp-miltech$ cmake --build --preset debug
+
+- без параметрів
+osha@devcontainer:~/cpp-miltech$ build/debug/homework_10/hw10_drone_sim
+osha@devcontainer:~/cpp-miltech$ ./build/debug/homework_10/hw10_drone_sim
+- з параметрами
+ ./build/homework_10/hw10_drone_sim \
+  homework_10/data/config.json \
+  homework_10/data/ammo.json \
+  homework_10/data/targets.json \
+  homework_10/data/ballistic_table.txt \
+  homework_10/simulation.json
+
+
+##  Про порушення прискорення від чекера. //Fix time mismatch 
+
+# farnblack:
+ Потокова частина коректна (телеметрія — атомарний снапшот під одним м'ютексом, провайдер під локом). 
+Влучань немає з іншої причини — наведення не виводить дрон на ціль (промах 24–166 м, 0/10, навіть де фізика проходить).
+
+# OSHA: 
+влучання не оцінювалися чекером, тому що в simulation.json вже попадала інша ціль - котра вибиралася після атаки. Виправлено
+- після атаки ціль не шукається відразу, безумовний перехід в стан Idle (//fix lost index of attacked target)
+
+Про порушення прискорення від чекера: 
+Таймстемп ви пишете, але не той: позицію фізика інтегрує фіксованим модельним кроком physicsTimeStep (DronePhysics.cpp:166,174), 
+а в timeSecSinceStart кладете реальний час tt.getElapsed() (DronePhysics.cpp:50, wall-clock). 
+Чекер рахує Δv/Δt, де Δv — з позицій (модельний крок), а Δt — ваш реальний час; 
+через неточний сон потоку відношення модельного часу до реального «плаває», і виміряне прискорення масштабується цим шумом. 
+А оскільки ви розганяєтесь рівно на межі (acceleration = attackSpeed²/(2·accelPath), без запасу), будь-який зайвий відсоток 
+викидає accel за ліміт — звідси недетермінованість (то ok, то fail на тому ж тесті) і збій саме на розгоні. 
+
+Правка: писати в timeSecSinceStart накопичений модельний час (Σ physicsTimeStep), а не getElapsed() — тоді Δv 
+і Δt з одного годинника і accel сходиться рівно до дозволеного.
+
+Оцінка: 8/9 (−1 за помилку роботи з часом: у телеметрію пишеться wall-clock замість модельного часу, 
+через що чекер бачить недетермінований accel-fail. Промах наведення на оцінку не впливає.) 

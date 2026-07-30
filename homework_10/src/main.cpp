@@ -82,14 +82,14 @@ auto main(int argc, char* argv[]) -> int
   std::cout.rdbuf(output_file.rdbuf());  // Перенаправляємо cout у файл
 #endif
 
-  // LOG("#hardware_concurrency() => " << std::thread::hardware_concurrency());
+  // LOG("#hardware_concurrency() => " << std::thread::hardware_concurrency());повертає кількість логічних ядер (потоків) процесора
   std::cout << std::fixed << std::setprecision(2);
   int result = 1;
 
   TimeTracker& tt = TimeTracker::getInstance();       // scale is set with start
   std::unique_ptr<ITargetProvider> tgtProvider;       // from factory
-  std::unique_ptr<drone::DronePhysics> physics;       // created with conf data
-  std::unique_ptr<core::MissionProcessor> processor;  // created with conf data above ptrs
+  std::unique_ptr<drone::DronePhysics> physics;       // creat with conf data
+  std::unique_ptr<core::MissionProcessor> processor;  // creat with conf data above ptrs
   std::thread providerThread;
   std::thread physicsThread;
   std::thread missionThread;

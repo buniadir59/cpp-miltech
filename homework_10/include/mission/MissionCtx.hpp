@@ -54,6 +54,7 @@ struct MissionCtx {
   double dist2fp;
   double hit_dist;
   int res_code;
+
   bool fired{false};
   dto::DroneCommand cmd;
 

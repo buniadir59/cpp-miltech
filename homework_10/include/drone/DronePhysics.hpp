@@ -20,17 +20,7 @@ state і ctx не доступні напряму ззовні.
  */
 
 namespace drone {
-/* struct DroneConfig {  // contains constant configuration params based on preloaded configuration
-  double accelerationPath;
-  double altitude;
-  double attackSpeed;
-  double maxAngularSpeedRadPerS;  // this is max angular speed => threshold
-  //  double turnThreshold;    // no sense in this parameter for HW10 as dt is much less now
-  double physicsTimeStep;  // 0.01
-  double acceleration;
-  double speedStep;  // increase/decrease speed at one physics time step
-  double distStep;   // distance at one phys step under attack speed
-}; */
+
 
 struct DroneContext {
   const dto::MissionConfig& mconf;
@@ -105,7 +95,7 @@ public:
 class DronePhysics {
   std::unique_ptr<IDroneState> state;
 
- // const dto::DroneConfig drConf;  // Dron configuration constants from app config and based on them
+  double modelTimeSec = 0.0; //Fix time mismatch - timestamp of simulation
   drone::DroneContext ctx;
 
   std::atomic<bool> threadStopRequested{false};
