@@ -30,6 +30,20 @@ def generate_launch_description():
         ],
     )
 
+    explorer_node = Node(
+            package="mission_explorer",
+            executable="mission_explorer_node",
+            name="mission_explorer",
+            output="screen",
+    )
+
+    action_node = Node(
+            package="mission_explorer",
+            executable="payload_action_node",
+            name="payload_action",
+            output="screen",
+    )
+
     # Тут можна додати керуючі ноди або інший launch-файл з рішенням.
     return LaunchDescription(
         [
@@ -44,5 +58,7 @@ def generate_launch_description():
                 description="Delay before applying queued move commands",
             ),
             world_node,
+            explorer_node,
+            action_node,
         ]
     )
