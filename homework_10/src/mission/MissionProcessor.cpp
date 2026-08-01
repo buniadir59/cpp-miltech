@@ -7,6 +7,8 @@
 #include "math/point_math.hpp"
 
 // #define DBG_MODE
+#define STOP_AFTER_HIT
+
 #ifdef DBG_MODE
 #include "config/defines.hpp"  //for DEBUG
 #endif
@@ -84,7 +86,11 @@ bool MissionProcessor::step()
     return false;
   }
 
-  updateTargets();  // get new positions and other parames & unreachable => active
+  if (updateTargets() ) { // get new positions and other parames & unreachable => active
+#ifdef STOP_AFTER_HIT   
+    return false; //stop if target is hit
+#endif
+  }  
   mctx.telemetry = drone_.getTelemetry();
   if (mctx.telemetry.speed > 0.0) {
     dto::BallisticResult ballResult = solver_->solve(mctx.mconf.kAltitude, mctx.telemetry.speed, ammo);
@@ -112,8 +118,9 @@ bool MissionProcessor::step()
 // for attacked targets checks if the ammo hit the ground,
 // if yes, verifies result of attacked - hit or miss
 // restores status active for unreachable targets
-auto MissionProcessor::updateTargets() -> void
-{
+auto MissionProcessor::updateTargets() -> bool  // returns true if attacked target is hit
+{    
+  bool res = false;
   for (std::size_t i = 0; i < targetDepo.size(); ++i) {
     if (targetDepo[i].state == DESTROYED)
       continue;
@@ -132,6 +139,7 @@ auto MissionProcessor::updateTargets() -> void
           if (dist <= mctx.mconf.hitRadius) {
             targetDepo[i].state = core::DESTROYED;
             stats.destroyed++;  // destroyed is final state
+            res = true;
           }
           else {
             targetDepo[i].state = core::ACTIVE;
@@ -153,6 +161,7 @@ auto MissionProcessor::updateTargets() -> void
         break;
     }
   }
+  return res;
 }
 
 auto MissionProcessor::updateBasicAmmoRes() -> void

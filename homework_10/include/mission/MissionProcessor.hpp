@@ -47,7 +47,7 @@ class MissionProcessor {
   const std::string simulationPath;
   dto::SimStatistics stats;  // includes steps, incremented through simulation until maximum
 
-  auto updateTargets() -> void;   // get new targets position and velocity values
+  auto updateTargets() -> bool;   // get new targets position and velocity values //returns true if attacked target is hit
   auto pushStepToJSON() -> void;  // Записати дані кроку у вихідн. JSON файл
   [[nodiscard]] auto isOnMission() const -> bool { return mctx.currentTgtTag >= 0; };
 
