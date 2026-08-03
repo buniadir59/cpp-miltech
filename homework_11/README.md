@@ -12,7 +12,7 @@
   виходом GPIO — той самий код на платі й у симуляції.
 
 ## **Що змінюється:**
-Зміни щодо зауважень з рев'ю  ДЗ-10: //TODO
+Зміни щодо зауважень з рев'ю  ДЗ-10: Done
 
 1. Відкрити і читати UART
 Порт — це файл. Відкрити його, налаштувати режим (115200, 8N1, raw) і читати потік байтів. 
@@ -88,7 +88,7 @@ N                |      1             | номер тесту (місії), 1..1
 --sim-bank <dir> | —                  | тільки sim: готовий debugfs-bank gpio-sim замість авто-створення чипа
 --selftest       | —                  | прогнати референтний автопілот без UART/GPIO — перевірка, що місія розв'язна
 
-## Симуляція (без плати)
+## Запуск симуляції (без плати)
 UART підміняється парою віртуальних портів (socat), GPIO — модулем gpio-sim. 
 Спершу запускаєте чекер (він чекає на START), потім свою програму. Чекер друкує імʼя 
 свого gpio-sim чипа — підставте його у --gpiochip студента:
@@ -143,81 +143,43 @@ homework_11/
 ├── README.md    
 └── CMakeLists.txt
 
-
-homework_10/       
-├── CMakeLists.txt       
-├── README.md    
-├── data/
-│ ├── ammo.json
-| ├── ballistic_table.txt
-│ ├── config.json
-│ └── targets.json    
-├── external/nlohmann
-|  └── json.hpp   
-├── include/          
-│ ├── config/
-│ | ├── defines.hpp
-│ | ├── TimeTracker.hpp
-│ | ├── FileConfigLoader.hpp
-│ | └── ComponentFactory.hpp
-│ ├── drone
-│ | ├── ThreadSafeQueue.hpp
-│ | └── DronePhysics.hpp
-│ ├── dto
-│ | ├── Ammo.hpp
-│ | ├── BallisticsInput.hpp
-│ | ├── BallisticResult.hpp
-│ | ├── DroneInterfaceStructures.hpp
-│ | ├── MissionConfig.hpp
-│ | ├── SimStatistics.hpp
-│ │ └── Target.hpp
-│ ├── interfaces/
-│ │ ├── ITargetProvider.hpp
-│ │ ├── IBallisticSolver.hpp
-│ │ ├── IDroneState.hpp
-│ │ ├── IMissionState.hpp
-│ │ └── IConfigLoader.hpp
-│ ├── math/
-│ │ ├── angle_math.hpp
-│ │ └── point_math.hpp
-│ ├── mission/
-│ | ├── MissionProcessor.hpp
-│ │ ├── MissionCtx.hpp
-│ | └── TargetControl.hpp
-│ ├── providers/
-│ │ └── ThreadSafeTargetProvider.hpp
-│ └──  solvers/
-│   ├── AnalyticalSolver.hpp
-|   ├── BallisticTable.hpp
-|   └── TableSolver.hpp
-└── src/                  
-  ├── main.cpp
-  ├── config/
-  │ ├── TargetControl.cpp
-  | ├── FileConfigLoader.cpp
-  | └── ComponentFactory.cpp
-  ├── drone
-  | └── DronePhysics.cpp
-  ├── math/
-  │ ├── angle_math.cpp
-  │ └── point_math.cpp
-  ├── mission/
-  │ ├── MissionProcessor.cpp
-  │ └── MissionCtx.cpp
-  ├── providers/
-  │ └── ThreadSafeTargetProvider.cpp
-  └── solvers/
-    ├── AnalyticalSolver.cpp
-    └── TableSolver.cpp
 ```
+## Робоче середовище:
 
-## Strange assumptions :)
+ Windows
+└── VirtualBox
+    └── Ubuntu VM
+        ├── VS Code
+        ├── Terminal
+        ├── repo cpp-miltech
+        ├── socat
+        ├── gpio-sim
+        └── checker + student program
 
-   - during simulation run, we can use ammo of one type in unlimited quantities
+ ## Кошмар-незабуть!
 
-## List of TODOs for the future:
+ VM: Ubuntu 24.04 у VirtualBox
+Запуск: звичайний Start з GUI
+Host key: Right Ctrl
+Fullscreen toggle: Right Ctrl + F
+Меню VirtualBox у fullscreen: Right Ctrl + Home
+Paste в Ubuntu Terminal: Ctrl + Shift + V
+Copy з Ubuntu Terminal: Ctrl + Shift + C       
 
-   - for point_math: implement near(accuracy) instead of operator==
+* VM має Display: 128 MB, VMSVGA
+* Якщо екран малий:
+   - натиснути maximize/restore у вікні VirtualBox туди-назад
+   - або Right Ctrl + G
+   - або View → Auto-resize Guest Display
 
-   
- 
+##  якщо gpio відсутні, їх треба створити
+
+sudo modprobe gpio-sim
+cd /sys/kernel/config/gpio-sim
+sudo mkdir hw11chip
+sudo mkdir hw11chip/bank0
+echo 32 | sudo tee hw11chip/bank0/num_lines
+echo 1 | sudo tee hw11chip/live
+cat hw11chip/bank0/chip_name
+gpiodetect
+

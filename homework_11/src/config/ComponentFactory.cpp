@@ -1,9 +1,9 @@
 #include "interfaces/IBallisticSolver.hpp"
-#include "interfaces/ITargetProvider.hpp"
+//#include "interfaces/ITargetProvider.hpp"
 #include "interfaces/IConfigLoader.hpp"
-#include "solvers/AnalyticalSolver.hpp"
+//#include "solvers/AnalyticalSolver.hpp"
 #include "solvers/TableSolver.hpp"
-#include "providers/ThreadSafeTargetProvider.hpp"
+//#include "providers/ThreadSafeTargetProvider.hpp"
 #include "config/ComponentFactory.hpp"
 #include "config/FileConfigLoader.hpp"
 
@@ -12,8 +12,8 @@
 std::unique_ptr<IBallisticSolver> ComponentFactory::createSolver(SolverType type, const std::string& path)
 {
   switch (type) {
-    case SolverType::ANALYTICAL:
-      return std::make_unique<AnalyticalSolver>();
+/*     case SolverType::ANALYTICAL:
+      return std::make_unique<AnalyticalSolver>(); */
     case SolverType::TABLE:
       return std::make_unique<TableSolver>(path.c_str());
     default:
@@ -21,7 +21,7 @@ std::unique_ptr<IBallisticSolver> ComponentFactory::createSolver(SolverType type
   }
 }
 
-std::unique_ptr<ITargetProvider> ComponentFactory::createProvider(ProviderType type,
+/* std::unique_ptr<ITargetProvider> ComponentFactory::createProvider(ProviderType type,
                                                                   const std::string& path,
                                                                   const dto::MissionConfig& config)
 {
@@ -32,7 +32,7 @@ std::unique_ptr<ITargetProvider> ComponentFactory::createProvider(ProviderType t
     default:
       return nullptr;
   }
-}
+} */
 
 std::unique_ptr<IConfigLoader> ComponentFactory::createLoader(LoaderType type)
 {

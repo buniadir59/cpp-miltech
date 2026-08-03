@@ -6,15 +6,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_library(
-    hw10_core
+    hw11_core
     src/math/point_math.cpp
-    src/math/angle_math.cpp
+    src/math/angle_math.cpp    
+    src/autopilot/autopilot.cpp
     src/config/FileConfigLoader.cpp
     src/mission/MissionProcessor.cpp
     src/mission/TargetControl.cpp
     src/config/ComponentFactory.cpp
     src/solvers/TableSolver.cpp
-    src/autopilot/autopilot.cpp
+
     src/mission/MissionCtx.cpp
     )
 

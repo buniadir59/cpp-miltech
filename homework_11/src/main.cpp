@@ -4,8 +4,8 @@
 #include "config/defines.hpp"
 #include "dto/SimStatistics.hpp"
 #include "dto/MissionConfig.hpp"
-#include "interfaces/ITargetProvider.hpp"
-#include "drone/DronePhysics.hpp"
+//#include "interfaces/ITargetProvider.hpp"
+//#include "drone/DronePhysics.hpp"
 
 #include <chrono>
 #include <memory>
@@ -74,6 +74,7 @@ auto main(int argc, char* argv[]) -> int
 #endif
 
   // LOG("#hardware_concurrency() => " << std::thread::hardware_concurrency());
+
   std::cout << std::fixed << std::setprecision(2);
   int result = 1;
 
@@ -81,6 +82,21 @@ auto main(int argc, char* argv[]) -> int
   std::unique_ptr<core::MissionProcessor> processor;  // created with conf data above ptrs
   std::thread missionThread;
 
+/*  TODO
+Додати UartPort і перевірити, що програма може відкрити /tmp/ttyA.
+Додати GpioControl і підняти START.
+Тільки після цього підключати стару mission logic.
+Тобто перша мета — не “влучити”, а зробити мінімальний цикл:
+
+open UART
+open GPIO
+START = 1
+read AMMO / CONFIG / TELEMETRY / TARGET
+send neutral CONTROL
+exit cleanly
+
+Після цього вже переносимо наведення і DROP
+*/
   try {
     const auto paths = parseInputPaths(argc, argv);
     ComponentFactory factory;

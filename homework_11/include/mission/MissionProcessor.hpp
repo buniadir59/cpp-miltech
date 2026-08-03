@@ -5,7 +5,7 @@
 #include "interfaces/IMissionState.hpp"
 #include "dto/SimStatistics.hpp"
 #include "dto/Ammo.hpp"
-#include "drone/DronePhysics.hpp"
+//#include "drone/DronePhysics.hpp"
 
 #include <memory>
 #include <nlohmann/json.hpp>
@@ -32,9 +32,9 @@ class MissionProcessor {
   std::atomic<bool> threadStopRequested{false};
   std::atomic<bool> failed{false};
 
-  ITargetProvider& targets_;
+ // ITargetProvider& targets_;
   std::unique_ptr<IBallisticSolver> solver_;
-  drone::DronePhysics& drone_;
+ // drone::DronePhysics& drone_;
   nlohmann::json j_out;
 
   std::vector<TargetControl> targetDepo;
@@ -59,7 +59,7 @@ class MissionProcessor {
   auto updateBasicAmmoRes() -> void;
 
 public:
-  void changeSolver(std::unique_ptr<IBallisticSolver> solver) { solver_ = std::move(solver); };  // Підмінити solver на льоту (Стратегія)
+//  void changeSolver(std::unique_ptr<IBallisticSolver> solver) { solver_ = std::move(solver); };  // Підмінити solver на льоту (Стратегія)
 
   [[nodiscard]] auto getSimulationStatistics() -> const dto::SimStatistics&;
   [[nodiscard]] auto isThreadReady() -> bool { return threadReady.load(); };
@@ -69,15 +69,15 @@ public:
   auto run() noexcept -> void;
 
   MissionProcessor(const dto::MissionConfig& mconf,
-                   ITargetProvider& targets,
+                //   ITargetProvider& targets,
                    std::unique_ptr<IBallisticSolver> solver,
-                   drone::DronePhysics& drone,
+               //    drone::DronePhysics& drone,
                    dto::Ammo ammo,
                    int kMaxSteps,
                    const std::string simulationPath)
-    : targets_(targets)
-    , solver_(std::move(solver))
-    , drone_(drone)
+    : //targets_(targets), 
+    solver_(std::move(solver))
+//    , drone_(drone)
     , mctx(mconf, targetDepo)
     , ammo(ammo)
     , kMaxSteps(kMaxSteps)

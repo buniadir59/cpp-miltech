@@ -1,17 +1,18 @@
 #include "mission/MissionProcessor.hpp"
 #include "config/TimeTracker.hpp"
 #include "dto/BallisticResult.hpp"
-#include "dto/Target.hpp"
-#include "interfaces/ITargetProvider.hpp"
+//#include "dto/Target.hpp"
+//#include "interfaces/ITargetProvider.hpp"
 #include "interfaces/IBallisticSolver.hpp"
 #include "math/point_math.hpp"
+#include "link/drone_link.h"
 
 #define DBG_MODE
 #ifdef DBG_MODE                // #endif
 #include "config/defines.hpp"  //for DEBUG
 #endif
 
-#include <memory>
+//#include <memory>
 #include <nlohmann/json.hpp>
 #include <cmath>
 #include <fstream>
@@ -21,6 +22,44 @@
 using json = nlohmann::json;
 
 namespace {
+/* 
+Другий важливий нюанс: у PKT_TARGET з ТЗ є тільки id, x, y, без швидкості. А  стара логіка 
+lead point потребує Target.velocity -> треба зробити маленький TargetTracker, 
+який для кожної цілі зберігає попередню позицію й час, і рахує швидкість кінцевою різницею:
+    velocity = (currentPosition - previousPosition) / dt;
+Час краще брати з останньої Telemetry.t_ms, бо це час симуляції чекера
+*/
+  /* //TODO 
+    є нюанс: у HW11 CONTROL.accel = 0 означає “тримати швидкість”, 
+  тому для MOVING після розгону, можливо, краще слати 0, а не 1. 
+  Тобто на практиці ControlMapper має дивитися ще й на поточну telemetry.speed. */
+auto mapCommand(const dto::DroneCommand& cmd, 
+                const dto::MissionConfig& conf) -> dlink::Control
+{
+  dlink::Control out{};
+
+  switch (cmd.state) {
+    case dto::ACCELERATING:
+    case dto::MOVING:
+      out.accel = 1.0F;
+      break;
+
+    case dto::DECELERATING:
+    case dto::STOPPED:
+      out.accel = -1.0F;
+      break;
+
+    case dto::TURNING:
+      out.accel = 0.0F;
+      break;
+  }
+
+  out.turnRate = static_cast<float>(
+      std::clamp(cmd.angleSpeed / conf.maxAngularSpeedRadPerS, -1.0, 1.0));
+
+  return out;
+}
+
 auto stateToStr(unsigned int state_num, bool& fired) -> const char*
 {
   if (fired) {
@@ -85,7 +124,7 @@ bool MissionProcessor::step()
   }
 
   updateTargets();  // get new positions and other parames & unreachable => active
-  mctx.telemetry = drone_.getTelemetry();
+ //TODO  mctx.telemetry = drone_.getTelemetry();
   if (mctx.telemetry.speed > 0.0) {
     dto::BallisticResult ballResult = solver_->solve(mctx.mconf.kAltitude, mctx.telemetry.speed, ammo);
 
@@ -101,12 +140,13 @@ bool MissionProcessor::step()
   if (next) {
     mstate = std::move(next);
   }
-  drone_.sendCommand(mctx.cmd);
+  //TODO drone_.sendCommand(mctx.cmd); 
   pushStepToJSON();
 
   ++stats.steps;
   return true;
 }
+
 
 // gets new targets position and velocity, skipping destroyed
 // for attacked targets checks if the ammo hit the ground,
@@ -118,7 +158,7 @@ auto MissionProcessor::updateTargets() -> void
     if (targetDepo[i].state == DESTROYED)
       continue;
 
-    targetDepo[i].now = targets_.getTarget(i);
+ //TODO   targetDepo[i].now = targets_.getTarget(i);
     targetDepo[i].update();
 
     switch (targetDepo[i].state) {
@@ -167,13 +207,13 @@ auto MissionProcessor::init() -> void
   j_out["steps"] = json::array();
   updateBasicAmmoRes();
   // initialise  tgts depo
-  const auto target_count = targets_.getTargetCount();
+  const auto target_count = 5;  //TODO targets_.getTargetCount();
   targetDepo.assign(static_cast<std::size_t>(target_count), TargetControl{});
   for (auto& target : targetDepo) {
     target.state = ACTIVE;
   }
 
-  stats.total = target_count;
+  stats.total =  target_count;
   stats.active = target_count;
   stats.solverName = solver_->name();
   stats.ammoName = ammo.name;

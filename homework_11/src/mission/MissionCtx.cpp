@@ -4,7 +4,7 @@
 #include "math/point_math.hpp"
 #include "math/angle_math.hpp"
 
-#define DBG_MODE
+#define DBG_MODE //TODO
 #ifdef DBG_MODE                // #endif
 #include "config/defines.hpp"  //for DEBUG
 #endif
